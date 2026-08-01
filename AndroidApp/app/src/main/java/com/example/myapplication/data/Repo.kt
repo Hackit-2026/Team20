@@ -113,6 +113,7 @@ class AppRepo(context: Context) {
 
     /**
      * 🚨 1日通知放置時の自動ペナルティ加算処理
+     * 放置日1日につき、1日の目標本数 (dailyGoal pt) をダイレクトにペナルティとして加算
      */
     fun checkAndApplyPenalty() {
         val data = loadData()
@@ -141,18 +142,22 @@ class AppRepo(context: Context) {
                     }
                 }
 
-                var totalPoints = 0
-                newCounts.values.forEach { c -> totalPoints += (c - 1) }
+                // 放置日数 × 1日の目標本数 (dailyGoal pt) だけポイントを直接加算！
+                val totalPenaltyPoints = goal * missedDays
+                val newPoints = (data.points + totalPenaltyPoints).coerceIn(0, StageLogic.MAX_POINTS)
 
                 saveData(data.copy(
                     counts = newCounts,
-                    points = totalPoints.coerceIn(0, StageLogic.MAX_POINTS)
+                    points = newPoints
                 ))
             }
         }
     }
 
-    /** 手動テスト用ペナルティ加算 */
+    /**
+     * 🚨 デバッグ用手動ペナルティ実行処理
+     * ボタンを押した瞬間に、1日の目標本数 (dailyGoal pt) の分のポイントをダイレクト加算！
+     */
     fun applyManualPenalty() {
         val data = loadData()
         val goal = data.settings.dailyGoal
@@ -161,13 +166,14 @@ class AppRepo(context: Context) {
         val newCounts = data.counts.toMutableMap()
         newCounts[yesterday] = goal
 
-        var totalPoints = 0
-        newCounts.values.forEach { c -> totalPoints += (c - 1) }
+        // 1日の目標本数 (dailyGoal) 分のポイントを直接加算！
+        val newPoints = (data.points + goal).coerceIn(0, StageLogic.MAX_POINTS)
 
         saveData(data.copy(
             counts = newCounts,
-            points = totalPoints.coerceIn(0, StageLogic.MAX_POINTS)
+            points = newPoints
         ))
+        Log.w("AppRepo", "🚨 Manual penalty applied! Added +$goal pt (Goal amount). Total points: $newPoints")
     }
 
     fun updateTodayCount(count: Int) {
@@ -227,7 +233,6 @@ class AppRepo(context: Context) {
                         )
                     }
                     
-                    // 🚨 取得した最新フィードでローカルDBを完全上書き（旧空データの消去）
                     val data = loadData()
                     saveData(data.copy(feed = fixedPosts))
                     Log.d("AppRepo", "✅ Successfully fetched & overwrote ${fixedPosts.size} posts with comments from $urlString")

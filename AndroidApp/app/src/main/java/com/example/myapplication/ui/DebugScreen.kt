@@ -120,7 +120,10 @@ fun DebugScreen(
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.errorContainer)
             ) {
-                Text("🚨 1日放置ペナルティのテスト実行 (+${uiState.settings.dailyGoal}pt)", color = MaterialTheme.colorScheme.onErrorContainer)
+                Text(
+                    text = "🚨 1日放置ペナルティのテスト実行 (+${uiState.settings.dailyGoal}pt)",
+                    color = MaterialTheme.colorScheme.onErrorContainer
+                )
             }
 
             Button(
