@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -69,6 +70,12 @@ class MainActivity : ComponentActivity() {
                 val uiState by viewModel.uiState.collectAsState()
                 var currentRoute by remember { mutableStateOf(ScreenRoute.HOME) }
 
+                // 🔙 端末のシステム戻るボタン / 戻るジェスチャー検知。
+                // メイン画面以外にいる場合、戻る操作で自動的にメイン画面へ遷移！
+                BackHandler(enabled = currentRoute != ScreenRoute.HOME) {
+                    currentRoute = ScreenRoute.HOME
+                }
+
                 LaunchedEffect(overlayGranted, usageAccessGranted) {
                     if (overlayGranted && usageAccessGranted) {
                         PenaltyWatcherService.start(this@MainActivity)
@@ -123,7 +130,6 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    // 🚨 重度ペナルティ時は画面操作を完全ブロック
                     if (uiState.isHeavyPenaltyActive) {
                         LaunchedEffect(Unit) {
                             viewModel.triggerHeavyPenaltyLock()
