@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
@@ -19,7 +19,7 @@ SCHEMA_PATH = os.path.join(os.path.dirname(__file__), "schema.sql")
 app = FastAPI(
     title="ヤニモグラ (YANI-GOTCHI) バックエンドサーバー",
     description="SQLite SQL データベース & LM Studio (google/gemma-4-12b-qat) 連携サーバー",
-    version="2.5.0"
+    version="2.6.0"
 )
 
 # CORS設定（すべてのIPからのアクセス許可）
@@ -93,7 +93,7 @@ PERSONA_CONFIGS = [
         "fallback_templates": [
             "べ、別に心配なんてしてないんだからね！でも…今日我慢できたのはちょっと偉いわよ。",
             "ふん、どうせ我慢できないと思ってたのに…まあ、がんばったじゃない。",
-            "調子に乗らないでよね！…でも、耐えられたのは誇っていいんだからね！"
+            "調子に乗らないでよね！…ポイントためて耐えられたのは誇っていいんだからね！"
         ]
     },
     {
@@ -154,35 +154,43 @@ async def fetch_llm_comment(persona: dict, user_text: str) -> str:
 
             try:
                 async with httpx.AsyncClient(timeout=12.0) as client:
+                    logger.info(f"Sending request to LM Studio ({endpoint_url}) for {persona['name']}...")
                     response = await client.post(endpoint_url, json=payload)
                     if response.status_code == 200:
                         data = response.json()
                         content = data["choices"][0]["message"]["content"].strip()
-                        return content.replace("AI", "").replace("人工知能", "").strip()
-            except Exception:
-                pass
+                        cleaned = content.replace("AI", "").replace("人工知能", "").strip()
+                        logger.info(f"✅ Generated comment for {persona['name']}: {cleaned}")
+                        return cleaned
+            except Exception as e:
+                logger.warning(f"Failed connecting to LM Studio for {persona['name']}: {e}")
 
-    return random.choice(persona["fallback_templates"])
+    fallback = random.choice(persona["fallback_templates"])
+    logger.info(f"Fallback comment used for {persona['name']}: {fallback}")
+    return fallback
 
 async def generate_and_save_bg_comments(post_id: str, text: str, timestamp: str):
-    """バックグラウンドでLM Studioのコメントを生成し、SQL DBへ保存"""
-    logger.info(f"⏳ Background AI comment generation started for post_id: {post_id}")
-    tasks = [fetch_llm_comment(persona, text) for persona in PERSONA_CONFIGS]
-    results = await asyncio.gather(*tasks)
-    
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    
-    for i, persona in enumerate(PERSONA_CONFIGS):
-        comment_text = results[i]
-        cursor.execute(
-            "INSERT INTO comments (post_id, name, avatar, comment, timestamp) VALUES (?, ?, ?, ?, ?)",
-            (post_id, persona["name"], persona["avatar"], comment_text, timestamp)
-        )
-    
-    conn.commit()
-    conn.close()
-    logger.info(f"✅ Background AI comments saved to SQL DB for post_id: {post_id}")
+    """バックグラウンドタスク: LM Studio からコメントを生成し、SQL DB へ保存"""
+    logger.info(f"🚀 AI comment generation background task started for post_id: {post_id}")
+    try:
+        tasks = [fetch_llm_comment(persona, text) for persona in PERSONA_CONFIGS]
+        results = await asyncio.gather(*tasks)
+        
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        for i, persona in enumerate(PERSONA_CONFIGS):
+            comment_text = results[i]
+            cursor.execute(
+                "INSERT INTO comments (post_id, name, avatar, comment, timestamp) VALUES (?, ?, ?, ?, ?)",
+                (post_id, persona["name"], persona["avatar"], comment_text, timestamp)
+            )
+        
+        conn.commit()
+        conn.close()
+        logger.info(f"🎉 Successfully saved 4 comments into SQL DB for post_id: {post_id}")
+    except Exception as e:
+        logger.error(f"❌ Error generating background comments for post_id {post_id}: {e}", exc_info=True)
 
 def get_all_posts_from_db() -> List[Post]:
     conn = sqlite3.connect(DB_PATH)
@@ -226,12 +234,12 @@ def get_feed():
     return get_all_posts_from_db()
 
 @app.post("/api/posts", response_model=Post)
-async def create_post(req: CreatePostRequest, background_tasks: BackgroundTasks):
+async def create_post(req: CreatePostRequest):
     """
-    ⚡ つぶやき投稿を即座（0.05秒）に受け取ってレスポンス。
-    AIコメントはバックグラウンドで非同期生成し、後からリロードで反映！
+    ⚡ ポストが来たら即座にSQL DBへ保存してスマホへ返し、
+    非同期タスクでAIにコメントを考えてもらいSQL DBへ自動挿入！
     """
-    logger.info(f"📥 Received fast post request from user: '{req.text}'")
+    logger.info(f"📥 Received post: '{req.text}'")
     new_id = f"post_{int(datetime.now().timestamp())}_{random.randint(100, 999)}"
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
     
@@ -244,8 +252,8 @@ async def create_post(req: CreatePostRequest, background_tasks: BackgroundTasks)
     conn.commit()
     conn.close()
     
-    # AIコメント生成をバックグラウンドに逃がすことで、即座にスマホへレスポンス
-    background_tasks.add_task(generate_and_save_bg_comments, new_id, req.text, now_str)
+    # ⚡ 非同期タスクでAIコメント生成＆SQL DB挿入を発火
+    asyncio.create_task(generate_and_save_bg_comments(new_id, req.text, now_str))
     
     new_post = Post(
         postId=new_id,

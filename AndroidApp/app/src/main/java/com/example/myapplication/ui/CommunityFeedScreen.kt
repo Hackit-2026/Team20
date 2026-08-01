@@ -25,6 +25,11 @@ fun CommunityFeedScreen(
     val uiState by viewModel.uiState.collectAsState()
     var postText by remember { mutableStateOf("") }
 
+    // 画面表示時に自動で最新データを同期
+    LaunchedEffect(Unit) {
+        viewModel.syncFeedFromServer()
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
