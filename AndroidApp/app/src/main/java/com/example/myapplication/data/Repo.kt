@@ -97,20 +97,6 @@ class AppRepo(context: Context) {
         )
     }
 
-    fun resetAllData() {
-        saveData(AppData())
-    }
-
-    fun addDummyData() {
-        val data = loadData()
-        val today = LocalDate.now()
-        val newCounts = data.counts.toMutableMap()
-        for (i in 1..3) {
-            val date = today.minusDays(i.toLong()).format(dateFormatter)
-            newCounts[date] = (2..12).random()
-        }
-        saveData(data.copy(counts = newCounts))
-    }
 }
 
 data class ChallengeStats(

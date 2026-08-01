@@ -1,28 +1,49 @@
 package com.example.myapplication.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.myapplication.ui.theme.MyApplicationTheme
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 import com.example.myapplication.logic.CharacterStage
 
-import androidx.compose.ui.platform.LocalContext
-import com.example.myapplication.notify.Reminder
+// この画面だけのローカルパレット。「説教しないアプリです、ただ鏡を置くだけ」という
+// コンセプトに合わせて、彩度を落とした静かな背景 + 深いティールのアクセント1色のみ。
+private val ScreenBg = Color(0xFFE7E9EA)
+private val Plate = Color(0xFFFFFFFF)
+private val Ink = Color(0xFF20242B)
+private val Muted = Color(0xFF6B7280)
+private val MutedSoft = Color(0xFF9AA1AB)
+private val Accent = Color(0xFF2E5C56)
 
 @Composable
 fun HomeScreen(
@@ -33,85 +54,149 @@ fun HomeScreen(
     onDecrement: () -> Unit,
     onNavigateToCalendar: () -> Unit,
     onNavigateToResult: () -> Unit,
-    onResetData: () -> Unit,
-    onInjectDummyData: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val context = LocalContext.current
     val stage = remember(todayCount) { CharacterStage.fromCount(todayCount) }
-    val line = remember(stage) { stageLines[stage.ordinal].random() }
+    val today = remember { LocalDate.now().format(DateTimeFormatter.ofPattern("M/d")) }
 
     Column(
-        modifier = modifier.fillMaxSize().padding(16.dp),
+        modifier = modifier
+            .fillMaxSize()
+            .background(ScreenBg)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        // 上部プレート: 日付 + 履歴への導線
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp))
+                .background(Plate)
+                .padding(horizontal = 14.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            OutlinedButton(onClick = onNavigateToCalendar) {
-                Text("カレンダー")
+            Text(text = today, color = Muted, fontSize = 13.sp)
+            TextButton(onClick = onNavigateToCalendar) {
+                Text("履歴")
             }
-            if (remainingDays <= 0) {
-                Button(onClick = onNavigateToResult) {
-                    Text("結果を見る")
+        }
+
+        // 残り日数を主役級に大きく見せる
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 14.dp)
+                .clip(RoundedCornerShape(18.dp))
+                .background(Accent)
+                .padding(horizontal = 20.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.Center,
+        ) {
+            Text(text = "残り", color = Color.White.copy(alpha = 0.75f), fontSize = 15.sp)
+            Text(
+                text = "$remainingDays",
+                color = Color.White,
+                fontSize = 44.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 4.dp),
+            )
+            Text(text = "日", color = Color.White.copy(alpha = 0.75f), fontSize = 15.sp)
+        }
+
+        if (remainingDays <= 0) {
+            Button(
+                onClick = onNavigateToResult,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 10.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Ink),
+            ) {
+                Text("結果を見る")
+            }
+        }
+
+        // 鏡フレームに入ったキャラクター本体
+        CharacterView(
+            stage = stage,
+            modifier = Modifier
+                .size(220.dp)
+                .padding(top = 20.dp),
+        )
+        Text(
+            text = "S$stage ・ ${stageColorNames[stage]}",
+            color = MutedSoft,
+            fontSize = 11.sp,
+            modifier = Modifier.padding(top = 6.dp),
+        )
+
+        // 本数ステッパー(数字を主役に、単位は添え字として横に添える)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 18.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(Plate)
+                .padding(vertical = 14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Row(
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                Text(
+                    text = "$todayCount",
+                    color = Ink,
+                    fontSize = 40.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = "本",
+                    color = Muted,
+                    fontSize = 15.sp,
+                    modifier = Modifier.padding(start = 2.dp, bottom = 6.dp),
+                )
+            }
+            Text(
+                text = "目標 ${dailyGoal}本まで",
+                color = MutedSoft,
+                fontSize = 11.sp,
+                modifier = Modifier.padding(top = 2.dp),
+            )
+            Row(
+                modifier = Modifier.padding(top = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(20.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                OutlinedButton(
+                    onClick = onDecrement,
+                    enabled = todayCount > 0,
+                    modifier = Modifier.size(56.dp),
+                    shape = CircleShape,
+                    contentPadding = PaddingValues(0.dp),
+                ) {
+                    Text("−", fontSize = 22.sp)
+                }
+                Button(
+                    onClick = onIncrement,
+                    modifier = Modifier.size(56.dp),
+                    shape = CircleShape,
+                    colors = ButtonDefaults.buttonColors(containerColor = Accent),
+                    contentPadding = PaddingValues(0.dp),
+                ) {
+                    Text("+", fontSize = 22.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
 
-        CharacterView(stage = stage.ordinal, modifier = Modifier.fillMaxWidth().padding(top = 16.dp))
-
         Text(
-            text = stage.label,
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(top = 16.dp),
+            text = "説教しないアプリです。ただ、鏡を置くだけ。",
+            color = MutedSoft,
+            fontSize = 11.sp,
+            fontStyle = FontStyle.Italic,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 18.dp),
         )
-        Text(
-            text = "「$line」",
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(top = 4.dp),
-        )
-
-        Text(
-            text = "今日: ${todayCount}本(目標 ${dailyGoal}本)",
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.padding(top = 24.dp),
-        )
-        Text(
-            text = "残り${remainingDays}日",
-            style = MaterialTheme.typography.bodySmall,
-        )
-
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            modifier = Modifier.padding(top = 24.dp),
-        ) {
-            OutlinedButton(onClick = onDecrement, modifier = Modifier.size(width = 72.dp, height = 48.dp)) {
-                Text("-1")
-            }
-            Button(onClick = onIncrement, modifier = Modifier.size(width = 120.dp, height = 48.dp)) {
-                Text("吸った +1")
-            }
-        }
-
-        OutlinedButton(
-            onClick = { Reminder.scheduleIn(context, 5) },
-            modifier = Modifier.padding(top = 32.dp)
-        ) {
-            Text("通知テスト (5秒後)")
-        }
-
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.padding(top = 8.dp)
-        ) {
-            OutlinedButton(onClick = onInjectDummyData) {
-                Text("デモデータ")
-            }
-            OutlinedButton(onClick = onResetData) {
-                Text("リセット")
-            }
-        }
     }
 }
 
@@ -120,15 +205,13 @@ fun HomeScreen(
 private fun HomeScreenPreview() {
     MyApplicationTheme {
         HomeScreen(
-            todayCount = 6,
-            dailyGoal = 0,
+            todayCount = 12,
+            dailyGoal = 5,
             remainingDays = 4,
             onIncrement = {},
             onDecrement = {},
             onNavigateToCalendar = {},
             onNavigateToResult = {},
-            onResetData = {},
-            onInjectDummyData = {},
         )
     }
 }

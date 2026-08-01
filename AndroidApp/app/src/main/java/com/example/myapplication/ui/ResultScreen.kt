@@ -35,10 +35,10 @@ fun ResultScreen(
     ) {
         Text("この期間のあなたの姿", style = MaterialTheme.typography.titleMedium)
 
-        CharacterView(stage = endingStage.ordinal, modifier = Modifier.fillMaxWidth().padding(top = 16.dp))
+        CharacterView(stage = endingStage, modifier = Modifier.fillMaxWidth().padding(top = 16.dp))
 
         Text(
-            text = endingStage.label,
+            text = "S$endingStage ・ ${stageColorNames[endingStage]}",
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.padding(top = 16.dp),
         )

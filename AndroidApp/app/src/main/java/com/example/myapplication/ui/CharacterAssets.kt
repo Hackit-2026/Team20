@@ -1,44 +1,91 @@
 package com.example.myapplication.ui
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import com.example.myapplication.R
 import com.example.myapplication.ui.theme.MyApplicationTheme
 
-import com.example.myapplication.logic.CharacterStage
+// キャラシート(Code_Generated_Image.png)のS0〜S20、21段階をそのまま切り出したもの。
+// 吸った本数(0〜20本)がそのままインデックスに対応する。
+private val stageDrawables = listOf(
+    R.drawable.char_stage_0, R.drawable.char_stage_1, R.drawable.char_stage_2,
+    R.drawable.char_stage_3, R.drawable.char_stage_4, R.drawable.char_stage_5,
+    R.drawable.char_stage_6, R.drawable.char_stage_7, R.drawable.char_stage_8,
+    R.drawable.char_stage_9, R.drawable.char_stage_10, R.drawable.char_stage_11,
+    R.drawable.char_stage_12, R.drawable.char_stage_13, R.drawable.char_stage_14,
+    R.drawable.char_stage_15, R.drawable.char_stage_16, R.drawable.char_stage_17,
+    R.drawable.char_stage_18, R.drawable.char_stage_19, R.drawable.char_stage_20,
+)
 
-val stageEmoji = CharacterStage.entries.map { it.emoji }
-val stageName = CharacterStage.entries.map { it.label }
-val stageLines = CharacterStage.entries.map { it.messages }
-val stageBackground = CharacterStage.entries.map { Color(it.colorHex) }
+val stageGlow = listOf(
+    Color(0xFFFFFFFF), Color(0xFFCFF8FF), Color(0xFF7EEBFF), Color(0xFF3FD9D6),
+    Color(0xFF72F0A6), Color(0xFFA9F542), Color(0xFFCBEF36), Color(0xFFFFE14A),
+    Color(0xFFFFC53B), Color(0xFFFF9836), Color(0xFFFF7230), Color(0xFFF54848),
+    Color(0xFFF33A7A), Color(0xFFD93BD9), Color(0xFFA552F5), Color(0xFF6558F0),
+    Color(0xFF3F78F0), Color(0xFF2755C8), Color(0xFF1C2F78), Color(0xFF0E1638),
+    Color(0xFF0A0A0A),
+)
 
+val stageColorNames = listOf(
+    "ホワイト", "アイスブルー", "シアン", "ターコイズ", "ミントグリーン", "ライム", "イエローグリーン",
+    "イエロー", "ゴールド", "オレンジ", "ダークオレンジ", "レッド", "ローズ", "マゼンタ", "パープル",
+    "インディゴ", "ブルー", "ディープブルー", "ネイビー", "ダークネイビー", "ブラック",
+)
+
+/**
+ * キャラを丸い「鏡」フレームの中に表示する。説教しないアプリ、ただ鏡を置くだけ、
+ * というコンセプトに合わせて、常に暗いスクリーンの上にキャラの色だけが浮かぶ見た目にしている。
+ */
 @Composable
 fun CharacterView(stage: Int, modifier: Modifier = Modifier) {
-    val background by animateColorAsState(targetValue = stageBackground[stage], label = "stageBackground")
+    val glow by animateColorAsState(targetValue = stageGlow[stage], label = "stageGlow")
+
     Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(background)
-            .padding(24.dp),
+        modifier = modifier.aspectRatio(1f),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            text = stageEmoji[stage],
-            fontSize = 96.sp,
-            textAlign = TextAlign.Center,
+        // 背景ににじむ、ステージ色のアンビエントグロー
+        Box(
+            modifier = Modifier
+                .fillMaxSize(0.85f)
+                .background(
+                    Brush.radialGradient(listOf(glow.copy(alpha = 0.55f), glow.copy(alpha = 0f)))
+                )
         )
+        // 鏡ベゼル + 暗いスクリーン
+        Box(
+            modifier = Modifier
+                .fillMaxSize(0.72f)
+                .shadow(elevation = 12.dp, shape = CircleShape, clip = false)
+                .clip(CircleShape)
+                .background(Color(0xFF12151B)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Image(
+                painter = painterResource(stageDrawables[stage]),
+                contentDescription = "キャラクター(S$stage ${stageColorNames[stage]})",
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxSize(0.66f),
+            )
+        }
     }
 }
 
@@ -46,6 +93,6 @@ fun CharacterView(stage: Int, modifier: Modifier = Modifier) {
 @Composable
 private fun CharacterViewPreview() {
     MyApplicationTheme {
-        CharacterView(stage = 3)
+        CharacterView(stage = 12, modifier = Modifier.size(220.dp))
     }
 }

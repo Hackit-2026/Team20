@@ -49,8 +49,6 @@ fun AppNavigation(viewModel: MainViewModel) {
                 onDecrement = { viewModel.decrementCount() },
                 onNavigateToCalendar = { navController.navigate("calendar") },
                 onNavigateToResult = { navController.navigate("result") },
-                onResetData = { viewModel.resetData() },
-                onInjectDummyData = { viewModel.injectDummyData() }
             )
         }
         composable("calendar") {
