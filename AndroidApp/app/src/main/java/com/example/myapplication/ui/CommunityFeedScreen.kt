@@ -58,20 +58,34 @@ fun CommunityFeedScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 8.dp),
+                        enabled = !uiState.isPosting,
                         maxLines = 3
                     )
-                    Button(
-                        onClick = {
-                            if (postText.isNotBlank()) {
-                                viewModel.postToTimeline(postText)
-                                postText = ""
-                            }
-                        },
+                    Row(
                         modifier = Modifier
-                            .align(Alignment.End)
-                            .padding(top = 8.dp)
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("投稿する")
+                        if (uiState.isPosting) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp).padding(end = 8.dp),
+                                strokeWidth = 2.dp
+                            )
+                            Text("サーバー生成中...", style = MaterialTheme.typography.labelMedium)
+                        } else {
+                            Button(
+                                onClick = {
+                                    if (postText.isNotBlank()) {
+                                        viewModel.postToTimeline(postText)
+                                        postText = ""
+                                    }
+                                }
+                            ) {
+                                Text("投稿する")
+                            }
+                        }
                     }
                 }
             }
@@ -131,7 +145,7 @@ fun PostCard(post: TimelinePost) {
             )
 
             // メンバーのコメント一覧
-            post.memberComments.forEach { comment ->
+            post.getCommentsList().forEach { comment ->
                 MemberCommentRow(comment = comment)
             }
         }

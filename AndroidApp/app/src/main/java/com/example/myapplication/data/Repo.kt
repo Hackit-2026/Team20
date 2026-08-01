@@ -4,9 +4,13 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
 import com.example.myapplication.logic.StageLogic
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import java.net.HttpURLConnection
+import java.net.URL
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -22,19 +26,30 @@ data class AppSettings(
 
 @Serializable
 data class MemberComment(
-    val name: String,
-    val avatar: String,
-    val comment: String
+    val name: String = "",
+    val avatar: String = "",
+    val comment: String = ""
 )
 
 @Serializable
 data class TimelinePost(
-    val postId: String,
-    val author: String,
-    val isNpc: Boolean,
-    val text: String,
-    val timestamp: String,
-    val memberComments: List<MemberComment>
+    val postId: String = "",
+    val author: String = "",
+    val isNpc: Boolean = false,
+    val text: String = "",
+    val timestamp: String = "",
+    val memberComments: List<MemberComment> = emptyList(),
+    val comments: List<MemberComment> = emptyList() // サーバー側キー名互換用
+) {
+    fun getCommentsList(): List<MemberComment> {
+        return if (comments.isNotEmpty()) comments else memberComments
+    }
+}
+
+@Serializable
+data class CreatePostReq(
+    val author: String = "あなた",
+    val text: String
 )
 
 @Serializable
@@ -119,7 +134,58 @@ class AppRepo(context: Context) {
 
     fun getFeed(): List<TimelinePost> = loadData().feed
 
+    /**
+     * 🌐 サーバー (FastAPI + LM Studio) に対して投稿を直接送信
+     * 4人のメンバーからの短いリアルタイムコメントを生成・保存
+     */
+    suspend fun postToTimelineServer(text: String): TimelinePost? = withContext(Dispatchers.IO) {
+        val baseUrl = getServerUrl().trimEnd('/')
+        val urlString = "$baseUrl/api/posts"
+        
+        try {
+            val url = URL(urlString)
+            val conn = url.openConnection() as HttpURLConnection
+            conn.requestMethod = "POST"
+            conn.setRequestProperty("Content-Type", "application/json; utf-8")
+            conn.setRequestProperty("Accept", "application/json")
+            conn.doOutput = true
+            conn.connectTimeout = 10000
+            conn.readTimeout = 120000 // LM Studio 生成待ちタイムアウト設定
+
+            val reqBody = json.encodeToString(CreatePostReq(author = "あなた", text = text))
+            conn.outputStream.use { os ->
+                os.write(reqBody.toByteArray(Charsets.UTF_8))
+            }
+
+            if (conn.responseCode == 200) {
+                val responseText = conn.inputStream.bufferedReader().use { it.readText() }
+                val newPost = json.decodeFromString<TimelinePost>(responseText)
+                
+                // ローカルDBのフィードも同時更新
+                val data = loadData()
+                saveData(data.copy(feed = listOf(newPost) + data.feed))
+                return@withContext newPost
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        
+        // オフライン・失敗時のフォールバックローカル投稿
+        val fallbackPost = TimelinePost(
+            postId = "p_${System.currentTimeMillis()}",
+            author = "あなた",
+            isNpc = false,
+            text = text,
+            timestamp = "たった今",
+            memberComments = generateMemberComments()
+        )
+        val data = loadData()
+        saveData(data.copy(feed = listOf(fallbackPost) + data.feed))
+        return@withContext fallbackPost
+    }
+
     fun postToTimeline(text: String) {
+        // 同期呼び出し用のラッパー（既存のダミーフォールバック）
         val data = loadData()
         val newPost = TimelinePost(
             postId = "p_${System.currentTimeMillis()}",

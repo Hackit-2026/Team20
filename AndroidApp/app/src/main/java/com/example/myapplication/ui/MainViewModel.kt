@@ -1,6 +1,7 @@
 package com.example.myapplication.ui
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.myapplication.data.AppRepo
 import com.example.myapplication.data.AppSettings
 import com.example.myapplication.data.ChallengeStats
@@ -10,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 data class UiState(
     val todayCount: Int = 10,
@@ -25,7 +27,8 @@ data class UiState(
     val allCounts: Map<String, Int> = emptyMap(),
     val feed: List<TimelinePost> = emptyList(),
     val isInitialized: Boolean = false,
-    val isWithdrawal: Boolean = false
+    val isWithdrawal: Boolean = false,
+    val isPosting: Boolean = false
 )
 
 class MainViewModel(private val repo: AppRepo) : ViewModel() {
@@ -52,7 +55,6 @@ class MainViewModel(private val repo: AppRepo) : ViewModel() {
         _uiState.update {
             it.copy(
                 todayCount = todayCount,
-                // 未確定の場合は、設定された「1日の目標本数 (settings.dailyGoal)」を至福の本数の初期値にする
                 tempCount = if (!confirmedToday) settings.dailyGoal else todayCount,
                 points = points,
                 isConfirmedToday = confirmedToday,
@@ -105,9 +107,16 @@ class MainViewModel(private val repo: AppRepo) : ViewModel() {
         refreshState()
     }
 
+    /**
+     * 🌐 サーバー (FastAPI + LM Studio) へ投稿を非同期送信し、4人の短い返信コメントを取得
+     */
     fun postToTimeline(text: String) {
-        repo.postToTimeline(text)
-        refreshState()
+        viewModelScope.launch {
+            _uiState.update { it.copy(isPosting = true) }
+            repo.postToTimelineServer(text)
+            _uiState.update { it.copy(isPosting = false) }
+            refreshState()
+        }
     }
 
     fun resetData() {
