@@ -18,7 +18,6 @@ object Reminder {
     private const val REQ_TEST = 1002
     private const val PREFS = "reminder_prefs"
     private const val NOTIF_REMINDER = 1
-    private const val NOTIF_PENALTY = 2
 
     // ── 設定の保存・読み出し(SharedPreferences = アプリ専用の小さな保存領域) ──
 
@@ -56,28 +55,6 @@ object Reminder {
             .setAutoCancel(true)
             .build()
         context.getSystemService(NotificationManager::class.java).notify(NOTIF_REMINDER, notif)
-    }
-
-    // ── ペナルティ通知(アプリ画面ではなく通知として、吸ったと申告された間ずっと出しておく) ──
-
-    fun showPenalty(context: Context, count: Int) {
-        val tap = PendingIntent.getActivity(
-            context, 0, Intent(context, MainActivity::class.java),
-            PendingIntent.FLAG_IMMUTABLE
-        )
-        val notif = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_alert)
-            .setContentTitle("⚠ ペナルティ中")
-            .setContentText("今日は${count}本吸ったと申告されました")
-            .setContentIntent(tap)
-            .setOngoing(true)
-            .setAutoCancel(false)
-            .build()
-        context.getSystemService(NotificationManager::class.java).notify(NOTIF_PENALTY, notif)
-    }
-
-    fun clearPenalty(context: Context) {
-        context.getSystemService(NotificationManager::class.java).cancel(NOTIF_PENALTY)
     }
 
     // ── n秒後に通知(発表用テスト通知) ──

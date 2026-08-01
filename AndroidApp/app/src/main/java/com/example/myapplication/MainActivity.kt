@@ -1,9 +1,13 @@
 package com.example.myapplication
 
 import android.Manifest
+import android.app.AppOpsManager
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -15,9 +19,11 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import com.example.myapplication.data.AppRepo
 import com.example.myapplication.notify.Reminder
+import com.example.myapplication.overlay.PenaltyWatcherService
 import com.example.myapplication.ui.HomeScreen
 import com.example.myapplication.ui.MainViewModel
 import com.example.myapplication.ui.theme.MyApplicationTheme
@@ -35,25 +41,25 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private var overlayGranted by mutableStateOf(false)
+    private var usageAccessGranted by mutableStateOf(false)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Reminder.createChannel(this)
         requestNotificationPermission()
-        // 一日の最後(21:00)に、未申告なら申告を促す通知を送る
+        // 一日の最後(21:00)に、未申告なら申告を促す通知を送る(これは通知でOK)
         Reminder.enableDaily(this, hour = 21, minute = 0)
         enableEdgeToEdge()
         setContent {
             MyApplicationTheme {
                 val uiState by viewModel.uiState.collectAsState()
-                val context = LocalContext.current
 
-                // ペナルティはアプリ画面ではなく通知(アプリの外)で表示する。
-                // 申告状態が変わるたび(=アプリを開いた/申告し直した)に同期する。
-                LaunchedEffect(uiState.today) {
-                    if (uiState.today.reported && uiState.today.smoked) {
-                        Reminder.showPenalty(context, uiState.today.count)
-                    } else {
-                        Reminder.clearPenalty(context)
+                // ペナルティは通知ではなく、他アプリを開いた時に重ねて出す警告で表示する。
+                // そのための常駐サービスを、必要な権限が揃っている間だけ動かす。
+                LaunchedEffect(overlayGranted, usageAccessGranted) {
+                    if (overlayGranted && usageAccessGranted) {
+                        PenaltyWatcherService.start(this@MainActivity)
                     }
                 }
 
@@ -64,9 +70,43 @@ class MainActivity : ComponentActivity() {
                     onIncrementTemp = { viewModel.incrementTempCount() },
                     onDecrementTemp = { viewModel.decrementTempCount() },
                     onConfirmSmokedReport = { viewModel.confirmSmokedReport() },
+                    overlayPermissionGranted = overlayGranted,
+                    usageAccessGranted = usageAccessGranted,
+                    onRequestOverlayPermission = { requestOverlayPermission() },
+                    onRequestUsageAccess = { requestUsageAccess() },
                 )
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Settings画面から戻ってきたタイミングで権限状態を再チェックする
+        overlayGranted = canDrawOverlays()
+        usageAccessGranted = hasUsageAccess()
+    }
+
+    private fun canDrawOverlays(): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this)
+
+    private fun hasUsageAccess(): Boolean {
+        val appOps = getSystemService(APP_OPS_SERVICE) as AppOpsManager
+        val mode = appOps.checkOpNoThrow(
+            AppOpsManager.OPSTR_GET_USAGE_STATS, android.os.Process.myUid(), packageName
+        )
+        return mode == AppOpsManager.MODE_ALLOWED
+    }
+
+    private fun requestOverlayPermission() {
+        val intent = Intent(
+            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+            Uri.parse("package:$packageName"),
+        )
+        startActivity(intent)
+    }
+
+    private fun requestUsageAccess() {
+        startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
     }
 
     private fun requestNotificationPermission() {

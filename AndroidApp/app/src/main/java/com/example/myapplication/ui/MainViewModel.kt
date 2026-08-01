@@ -13,6 +13,9 @@ data class UiState(
     // 「吸った」を選んでから[申告する]を押すまでの一時入力状態。null = まだ選んでいない
     val tempSmoked: Boolean? = null,
     val tempCount: Int = 1,
+    // 目標は0本からスタートし、吸わずに3か月経つと達成
+    val daysUntilGoal: Long = 0,
+    val goalAchieved: Boolean = false,
 )
 
 class MainViewModel(private val repo: AppRepo) : ViewModel() {
@@ -25,7 +28,13 @@ class MainViewModel(private val repo: AppRepo) : ViewModel() {
     }
 
     private fun refreshState() {
-        _uiState.update { UiState(today = repo.getTodayReport()) }
+        _uiState.update {
+            UiState(
+                today = repo.getTodayReport(),
+                daysUntilGoal = repo.daysUntilGoal(),
+                goalAchieved = repo.isGoalAchieved(),
+            )
+        }
     }
 
     /** 「吸った」を選択 → 本数ステッパーを表示する */

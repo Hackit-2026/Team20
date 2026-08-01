@@ -8,6 +8,13 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 
+    <!-- ペナルティ中に他アプリを開いたことを検知し、上に重ねてメッセージを出すための権限 -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -34,6 +41,15 @@
         <receiver
             android:name=".notify.ReminderReceiver"
             android:exported="false" />
+
+        <service
+            android:name=".overlay.PenaltyWatcherService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="ペナルティ中に他アプリの起動を検知して警告を重ね表示するため" />
+        </service>
     </application>
 
 </manifest>

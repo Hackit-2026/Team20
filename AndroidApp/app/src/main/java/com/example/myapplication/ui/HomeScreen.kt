@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -20,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -49,6 +51,10 @@ fun HomeScreen(
     onIncrementTemp: () -> Unit,
     onDecrementTemp: () -> Unit,
     onConfirmSmokedReport: () -> Unit,
+    overlayPermissionGranted: Boolean = true,
+    usageAccessGranted: Boolean = true,
+    onRequestOverlayPermission: () -> Unit = {},
+    onRequestUsageAccess: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     // 端末のタイムゾーンに関わらず、常に日本時間の日付を表示する
@@ -65,6 +71,15 @@ fun HomeScreen(
             .padding(horizontal = 20.dp, vertical = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        if (!overlayPermissionGranted || !usageAccessGranted) {
+            PermissionBanner(
+                overlayPermissionGranted = overlayPermissionGranted,
+                usageAccessGranted = usageAccessGranted,
+                onRequestOverlayPermission = onRequestOverlayPermission,
+                onRequestUsageAccess = onRequestUsageAccess,
+            )
+        }
+
         // 日付(日本時間)を中央に大きく表示
         Text(
             text = today,
@@ -83,8 +98,11 @@ fun HomeScreen(
             modifier = Modifier.padding(top = 8.dp),
         )
 
+        // 目標は0本から。吸わずに3か月経つと達成。
+        GoalLine(daysUntilGoal = uiState.daysUntilGoal, achieved = uiState.goalAchieved)
+
         // 本日の申告状況(あくまで小さいステータス表示。ペナルティの警告自体は
-        // 通知側=アプリの外に出すので、ここは画面を占領しない)
+        // 他アプリを開いた時のオーバーレイ側=アプリの外に出すので、ここは画面を占領しない)
         StatusLine(report)
 
         // 申告UIは申告済みかどうかに関わらず常にここから操作できる(再申告も可能)
@@ -96,6 +114,64 @@ fun HomeScreen(
             onIncrementTemp = onIncrementTemp,
             onDecrementTemp = onDecrementTemp,
             onConfirmSmokedReport = onConfirmSmokedReport,
+        )
+    }
+}
+
+@Composable
+private fun PermissionBanner(
+    overlayPermissionGranted: Boolean,
+    usageAccessGranted: Boolean,
+    onRequestOverlayPermission: () -> Unit,
+    onRequestUsageAccess: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(Plate)
+            .padding(14.dp),
+    ) {
+        Text(
+            text = "他アプリを開いた時に警告を出すための権限が未設定です",
+            color = Ink,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+        )
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(top = 8.dp),
+        ) {
+            if (!overlayPermissionGranted) {
+                OutlinedButton(onClick = onRequestOverlayPermission) {
+                    Text("重ね表示を許可", fontSize = 12.sp)
+                }
+            }
+            if (!usageAccessGranted) {
+                OutlinedButton(onClick = onRequestUsageAccess) {
+                    Text("使用状況アクセスを許可", fontSize = 12.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GoalLine(daysUntilGoal: Long, achieved: Boolean) {
+    if (achieved) {
+        Text(
+            text = "🎉 目標達成(3か月吸っていません)",
+            color = Accent,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(top = 10.dp),
+        )
+    } else {
+        Text(
+            text = "目標(3か月0本)まで残り${daysUntilGoal}日",
+            color = MutedSoft,
+            fontSize = 12.sp,
+            modifier = Modifier.padding(top = 10.dp),
         )
     }
 }
@@ -117,7 +193,7 @@ private fun StatusLine(report: DailyReport) {
         color = color,
         fontSize = 12.sp,
         fontWeight = FontWeight.Bold,
-        modifier = Modifier.padding(top = 12.dp),
+        modifier = Modifier.padding(top = 6.dp),
     )
 }
 
@@ -137,7 +213,7 @@ private fun ReportSection(
         fontSize = 22.sp,
         fontWeight = FontWeight.Bold,
         textAlign = TextAlign.Center,
-        modifier = Modifier.padding(top = 40.dp),
+        modifier = Modifier.padding(top = 32.dp),
     )
 
     if (tempSmoked != true) {
@@ -236,6 +312,8 @@ private fun HomeScreenPenaltyPreview() {
             onIncrementTemp = {},
             onDecrementTemp = {},
             onConfirmSmokedReport = {},
+            overlayPermissionGranted = false,
+            usageAccessGranted = false,
         )
     }
 }
