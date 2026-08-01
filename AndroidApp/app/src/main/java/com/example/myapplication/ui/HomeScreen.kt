@@ -24,7 +24,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -207,19 +206,10 @@ private fun ReportSection(
     onDecrementTemp: () -> Unit,
     onConfirmSmokedReport: () -> Unit,
 ) {
-    Text(
-        text = "今日はタバコを吸いましたか？",
-        color = Ink,
-        fontSize = 22.sp,
-        fontWeight = FontWeight.Bold,
-        textAlign = TextAlign.Center,
-        modifier = Modifier.padding(top = 32.dp),
-    )
-
     if (tempSmoked != true) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(16.dp),
-            modifier = Modifier.padding(top = 28.dp),
+            modifier = Modifier.padding(top = 32.dp),
         ) {
             Button(
                 onClick = onChooseSmoked,
