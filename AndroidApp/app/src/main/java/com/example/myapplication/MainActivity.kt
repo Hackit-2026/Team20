@@ -65,11 +65,9 @@ class MainActivity : ComponentActivity() {
 
                 HomeScreen(
                     uiState = uiState,
-                    onChooseSmoked = { viewModel.chooseSmoked() },
-                    onReportNoSmoke = { viewModel.reportNoSmoke() },
                     onIncrementTemp = { viewModel.incrementTempCount() },
                     onDecrementTemp = { viewModel.decrementTempCount() },
-                    onConfirmSmokedReport = { viewModel.confirmSmokedReport() },
+                    onSaveReport = { viewModel.saveReport() },
                     overlayPermissionGranted = overlayGranted,
                     usageAccessGranted = usageAccessGranted,
                     onRequestOverlayPermission = { requestOverlayPermission() },

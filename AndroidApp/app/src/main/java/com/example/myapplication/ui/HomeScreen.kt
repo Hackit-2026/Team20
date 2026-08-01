@@ -42,11 +42,9 @@ val Warn = Color(0xFFB3261E)
 @Composable
 fun HomeScreen(
     uiState: UiState,
-    onChooseSmoked: () -> Unit,
-    onReportNoSmoke: () -> Unit,
     onIncrementTemp: () -> Unit,
     onDecrementTemp: () -> Unit,
-    onConfirmSmokedReport: () -> Unit,
+    onSaveReport: () -> Unit,
     overlayPermissionGranted: Boolean = true,
     usageAccessGranted: Boolean = true,
     onRequestOverlayPermission: () -> Unit = {},
@@ -101,15 +99,14 @@ fun HomeScreen(
         // 他アプリを開いた時のオーバーレイ側=アプリの外に出すので、ここは画面を占領しない)
         StatusLine(report)
 
-        // 申告UIは申告済みかどうかに関わらず常にここから操作できる(再申告も可能)
-        ReportSection(
-            tempSmoked = uiState.tempSmoked,
+        // 本数入力は申告済みかどうかに関わらず常にここから操作できる(再申告も可能)。
+        // 0本のまま保存すれば「吸わなかった」扱いになるので、吸った/吸わなかったの
+        // 二択画面自体を挟まない。
+        CountSection(
             tempCount = uiState.tempCount,
-            onChooseSmoked = onChooseSmoked,
-            onReportNoSmoke = onReportNoSmoke,
             onIncrementTemp = onIncrementTemp,
             onDecrementTemp = onDecrementTemp,
-            onConfirmSmokedReport = onConfirmSmokedReport,
+            onSaveReport = onSaveReport,
         )
     }
 }
@@ -186,82 +183,58 @@ private fun StatusLine(report: DailyReport) {
 }
 
 @Composable
-private fun ReportSection(
-    tempSmoked: Boolean?,
+private fun CountSection(
     tempCount: Int,
-    onChooseSmoked: () -> Unit,
-    onReportNoSmoke: () -> Unit,
     onIncrementTemp: () -> Unit,
     onDecrementTemp: () -> Unit,
-    onConfirmSmokedReport: () -> Unit,
+    onSaveReport: () -> Unit,
 ) {
-    if (tempSmoked != true) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            modifier = Modifier.padding(top = 32.dp),
+    Text(
+        text = "何本吸いましたか？",
+        color = Muted,
+        fontSize = 14.sp,
+        modifier = Modifier.padding(top = 32.dp),
+    )
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(24.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(top = 12.dp),
+    ) {
+        OutlinedButton(
+            onClick = onDecrementTemp,
+            modifier = Modifier.size(56.dp),
+            shape = CircleShape,
+            contentPadding = PaddingValues(0.dp),
         ) {
-            Button(
-                onClick = onChooseSmoked,
-                modifier = Modifier.size(width = 140.dp, height = 56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Warn),
-            ) {
-                Text("吸った", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-            }
-            OutlinedButton(
-                onClick = onReportNoSmoke,
-                modifier = Modifier.size(width = 140.dp, height = 56.dp),
-            ) {
-                Text("吸わなかった", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Ink)
-            }
+            Text("−", fontSize = 22.sp)
         }
-    } else {
-        Text(
-            text = "何本吸いましたか？",
-            color = Muted,
-            fontSize = 14.sp,
-            modifier = Modifier.padding(top = 28.dp),
-        )
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(24.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(top = 12.dp),
-        ) {
-            OutlinedButton(
-                onClick = onDecrementTemp,
-                modifier = Modifier.size(56.dp),
-                shape = CircleShape,
-                contentPadding = PaddingValues(0.dp),
-            ) {
-                Text("−", fontSize = 22.sp)
-            }
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text(text = "$tempCount", color = Ink, fontSize = 32.sp, fontWeight = FontWeight.Bold)
-                Text(
-                    text = "本",
-                    color = Muted,
-                    fontSize = 14.sp,
-                    modifier = Modifier.padding(start = 2.dp, bottom = 4.dp),
-                )
-            }
-            Button(
-                onClick = onIncrementTemp,
-                modifier = Modifier.size(56.dp),
-                shape = CircleShape,
-                colors = ButtonDefaults.buttonColors(containerColor = Accent),
-                contentPadding = PaddingValues(0.dp),
-            ) {
-                Text("+", fontSize = 22.sp, fontWeight = FontWeight.Bold)
-            }
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(text = "$tempCount", color = Ink, fontSize = 32.sp, fontWeight = FontWeight.Bold)
+            Text(
+                text = "本",
+                color = Muted,
+                fontSize = 14.sp,
+                modifier = Modifier.padding(start = 2.dp, bottom = 4.dp),
+            )
         }
         Button(
-            onClick = onConfirmSmokedReport,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 24.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Ink),
+            onClick = onIncrementTemp,
+            modifier = Modifier.size(56.dp),
+            shape = CircleShape,
+            colors = ButtonDefaults.buttonColors(containerColor = Accent),
+            contentPadding = PaddingValues(0.dp),
         ) {
-            Text("申告する")
+            Text("+", fontSize = 22.sp, fontWeight = FontWeight.Bold)
         }
+    }
+    Button(
+        onClick = onSaveReport,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 24.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = Ink),
+    ) {
+        Text("保存")
     }
 }
 
@@ -271,11 +244,9 @@ private fun HomeScreenUnreportedPreview() {
     MyApplicationTheme {
         HomeScreen(
             uiState = UiState(),
-            onChooseSmoked = {},
-            onReportNoSmoke = {},
             onIncrementTemp = {},
             onDecrementTemp = {},
-            onConfirmSmokedReport = {},
+            onSaveReport = {},
         )
     }
 }
@@ -286,11 +257,9 @@ private fun HomeScreenPenaltyPreview() {
     MyApplicationTheme {
         HomeScreen(
             uiState = UiState(today = DailyReport(reported = true, smoked = true, count = 3)),
-            onChooseSmoked = {},
-            onReportNoSmoke = {},
             onIncrementTemp = {},
             onDecrementTemp = {},
-            onConfirmSmokedReport = {},
+            onSaveReport = {},
             overlayPermissionGranted = false,
             usageAccessGranted = false,
         )
