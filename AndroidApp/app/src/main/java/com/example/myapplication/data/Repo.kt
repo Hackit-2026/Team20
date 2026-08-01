@@ -2,6 +2,7 @@ package com.example.myapplication.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
 import androidx.core.content.edit
 import com.example.myapplication.logic.StageLogic
 import kotlinx.coroutines.Dispatchers
@@ -136,40 +137,55 @@ class AppRepo(context: Context) {
 
     /**
      * 🌐 サーバー (FastAPI + LM Studio) に対して投稿を直接送信
-     * 4人のメンバーからの短いリアルタイムコメントを生成・保存
+     * エミュレータ用 (10.0.2.2) ＆ 実機・写真用 (192.168.25.42) の両方へ順次接続試行
      */
     suspend fun postToTimelineServer(text: String): TimelinePost? = withContext(Dispatchers.IO) {
-        val baseUrl = getServerUrl().trimEnd('/')
-        val urlString = "$baseUrl/api/posts"
+        val configuredUrl = getServerUrl().trimEnd('/')
         
-        try {
-            val url = URL(urlString)
-            val conn = url.openConnection() as HttpURLConnection
-            conn.requestMethod = "POST"
-            conn.setRequestProperty("Content-Type", "application/json; utf-8")
-            conn.setRequestProperty("Accept", "application/json")
-            conn.doOutput = true
-            conn.connectTimeout = 10000
-            conn.readTimeout = 120000 // LM Studio 生成待ちタイムアウト設定
+        // 試行する候補URLリスト
+        val candidateUrls = listOf(
+            "$configuredUrl/api/posts",
+            "http://192.168.25.42:8000/api/posts",
+            "http://10.0.2.2:8000/api/posts",
+            "http://localhost:8000/api/posts"
+        ).distinct()
 
-            val reqBody = json.encodeToString(CreatePostReq(author = "あなた", text = text))
-            conn.outputStream.use { os ->
-                os.write(reqBody.toByteArray(Charsets.UTF_8))
-            }
+        for (urlString in candidateUrls) {
+            Log.d("AppRepo", "Attempting HTTP POST to server: $urlString")
+            try {
+                val url = URL(urlString)
+                val conn = url.openConnection() as HttpURLConnection
+                conn.requestMethod = "POST"
+                conn.setRequestProperty("Content-Type", "application/json; utf-8")
+                conn.setRequestProperty("Accept", "application/json")
+                conn.doOutput = true
+                conn.connectTimeout = 8000
+                conn.readTimeout = 120000 // LM Studio 生成待ち
 
-            if (conn.responseCode == 200) {
-                val responseText = conn.inputStream.bufferedReader().use { it.readText() }
-                val newPost = json.decodeFromString<TimelinePost>(responseText)
-                
-                // ローカルDBのフィードも同時更新
-                val data = loadData()
-                saveData(data.copy(feed = listOf(newPost) + data.feed))
-                return@withContext newPost
+                val reqBody = json.encodeToString(CreatePostReq(author = "あなた", text = text))
+                conn.outputStream.use { os ->
+                    os.write(reqBody.toByteArray(Charsets.UTF_8))
+                }
+
+                val responseCode = conn.responseCode
+                Log.d("AppRepo", "Server response code from $urlString: $responseCode")
+
+                if (responseCode == 200) {
+                    val responseText = conn.inputStream.bufferedReader().use { it.readText() }
+                    Log.d("AppRepo", "Server response body: $responseText")
+                    val newPost = json.decodeFromString<TimelinePost>(responseText)
+                    
+                    // ローカルDBのフィードも同時更新
+                    val data = loadData()
+                    saveData(data.copy(feed = listOf(newPost) + data.feed))
+                    return@withContext newPost
+                }
+            } catch (e: Exception) {
+                Log.e("AppRepo", "HTTP connection failed for $urlString: ${e.message}", e)
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
         }
         
+        Log.w("AppRepo", "All server connection attempts failed. Using local fallback.")
         // オフライン・失敗時のフォールバックローカル投稿
         val fallbackPost = TimelinePost(
             postId = "p_${System.currentTimeMillis()}",
@@ -185,7 +201,6 @@ class AppRepo(context: Context) {
     }
 
     fun postToTimeline(text: String) {
-        // 同期呼び出し用のラッパー（既存のダミーフォールバック）
         val data = loadData()
         val newPost = TimelinePost(
             postId = "p_${System.currentTimeMillis()}",
