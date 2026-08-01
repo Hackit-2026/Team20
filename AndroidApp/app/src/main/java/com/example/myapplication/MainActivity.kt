@@ -123,21 +123,14 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    var showHeavyPenalty by remember {
-                        mutableStateOf(uiState.weeklyTotal >= 2)
-                    }
-
-                    LaunchedEffect(showHeavyPenalty) {
-                        try {
-                            if (showHeavyPenalty) startLockTask() else stopLockTask()
-                        } catch (e: Exception) {
+                    // 🚨 自アプリ内でも重度ペナルティ時は画面遷移や操作を一切不可にする全画面ロック
+                    if (uiState.isHeavyPenaltyActive) {
+                        LaunchedEffect(Unit) {
+                            viewModel.triggerHeavyPenaltyLock()
                         }
-                    }
-
-                    if (showHeavyPenalty) {
                         HeavyPenaltyOverlay(
                             weeklyTotal = uiState.weeklyTotal,
-                            onDismiss = { showHeavyPenalty = false },
+                            onDismiss = { viewModel.refreshState() },
                         )
                     }
                 }
@@ -147,6 +140,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        viewModel.refreshState()
         overlayGranted = canDrawOverlays()
         usageAccessGranted = hasUsageAccess()
     }

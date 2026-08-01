@@ -27,6 +27,7 @@ data class AppData(
     val currentGoal: Int = 10,
     val streakStartDate: String = LocalDate.now(ZoneId.of("Asia/Tokyo")).toString(),
     val isInitialized: Boolean = false,
+    val heavyPenaltyLockUntil: Long = 0L, // 🚨 重度ペナルティのロック完了終了タイムスタンプ（ミリ秒）
 )
 
 private val JST: ZoneId = ZoneId.of("Asia/Tokyo")
@@ -66,6 +67,26 @@ class AppRepo(context: Context) {
         saveData(data.copy(notifyHour = hour, notifyMinute = minute))
     }
 
+    /**
+     * 🚨 60秒重度ペナルティのロック時間を永続保存
+     */
+    fun triggerHeavyPenaltyLock() {
+        val data = loadData()
+        val now = System.currentTimeMillis()
+        if (data.heavyPenaltyLockUntil < now) {
+            saveData(data.copy(heavyPenaltyLockUntil = now + 60_000L))
+        }
+    }
+
+    fun isHeavyPenaltyActive(): Boolean {
+        return System.currentTimeMillis() < loadData().heavyPenaltyLockUntil
+    }
+
+    fun getRemainingPenaltySeconds(): Int {
+        val remainingMs = loadData().heavyPenaltyLockUntil - System.currentTimeMillis()
+        return (remainingMs / 1000).coerceAtLeast(0).toInt()
+    }
+
     fun submitReport(smoked: Boolean, count: Int) {
         val data = loadData()
         val today = getTodayDate()
@@ -103,10 +124,6 @@ class AppRepo(context: Context) {
         return getWeeklyTotal() / 7.0
     }
 
-    /**
-     * 🚨 【新ペナルティ計算公式】
-     * PenaltyValue = (前日 * 2.0) + (2日前 * 1.5) + (3日前 * 1.2) + (4日前 * 1.0) + (5日前 * 0.8) + (6日前 * 0.5)
-     */
     fun calculateWeightedPenaltyValue(): Double {
         val data = loadData()
         val today = LocalDate.now(JST)
@@ -138,12 +155,6 @@ class AppRepo(context: Context) {
         return if (totalWeight > 0) weightedSum / totalWeight else 0.0
     }
 
-    /**
-     * 🎯 【新・目標引き下げ計算公式】
-     * 次の目標 = floor(今週の1日あたり平均吸った本数 / ユーザーが決めたきつさの値)
-     * きつさの値の範囲: 1.2 ～ 20.0
-     * ※ 今回の目標が 0 であれば無条件で 0 を出力。
-     */
     fun calculateNextGoal(difficulty: Double): Int {
         val data = loadData()
         val currentGoal = data.currentGoal

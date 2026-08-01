@@ -32,13 +32,10 @@ import kotlinx.coroutines.launch
 private enum class OverlayKind { NONE, LIGHT, HEAVY }
 
 /**
- * 🚨 他アプリ起動時の警告オーバーレイペナルティサービス
+ * 🚨 他アプリ起動時 ＆ 自アプリ画面遷移時における強固な2段階ペナルティサービス
  *
- * 【新ペナルティ計算公式】
- * PenaltyValue = (前日×2.0) + (2日前×1.5) + (3日前×1.2) + (4日前×1.0) + (5日前×0.8) + (6日前×0.5)
- *
- * - 2.0 <= PenaltyValue < 5.0 : 軽度ペナルティ (メッセージ表示、即座に閉じられる)
- * - PenaltyValue >= 5.0      : 重度ペナルティ (「もっと禁煙してください！」+ 1分間(60秒)操作不可)
+ * 対策1: ペナルティロックタイムスタンプを保存し、アプリ再起動や画面遷移を行っても60秒間は絶対逃れられない。
+ * 対策2: 重度ペナルティ中 (PenaltyValue >= 5.0) は、自アプリに戻った場合でも removeOverlay() せず画面ブロックを維持。
  */
 class PenaltyWatcherService : Service() {
 
@@ -71,8 +68,22 @@ class PenaltyWatcherService : Service() {
         scope.launch {
             while (isActive) {
                 val fg = getForegroundPackage()
+                val isHeavyActive = repo.isHeavyPenaltyActive()
+                val penaltyVal = repo.calculateWeightedPenaltyValue()
 
-                if (fg == null || fg == packageName) {
+                if (penaltyVal >= 5.0 && !isHeavyActive) {
+                    repo.triggerHeavyPenaltyLock()
+                }
+
+                val currentHeavyActive = repo.isHeavyPenaltyActive()
+
+                // 🚨 対策2: 重度ペナルティ中であれば、自アプリに戻った場合でも解除せず全画面ロックを維持！
+                if (currentHeavyActive) {
+                    if (overlayView == null || currentOverlayKind != OverlayKind.HEAVY) {
+                        removeOverlay()
+                        showHeavyOverlay(repo)
+                    }
+                } else if (fg == null || fg == packageName) {
                     removeOverlay()
                     stableForeignPackage = null
                     stableForeignStreak = 0
@@ -81,9 +92,7 @@ class PenaltyWatcherService : Service() {
                     stableForeignPackage = fg
 
                     if (stableForeignStreak >= 2) {
-                        val penaltyVal = repo.calculateWeightedPenaltyValue()
                         val desiredKind = when {
-                            penaltyVal >= 5.0 -> OverlayKind.HEAVY
                             penaltyVal >= 2.0 -> OverlayKind.LIGHT
                             else -> OverlayKind.NONE
                         }
@@ -91,16 +100,14 @@ class PenaltyWatcherService : Service() {
                             removeOverlay()
                         } else if (overlayView == null || currentOverlayKind != desiredKind) {
                             removeOverlay()
-                            when (desiredKind) {
-                                OverlayKind.HEAVY -> showHeavyOverlay(penaltyVal)
-                                OverlayKind.LIGHT -> showLightOverlay(penaltyVal)
-                                OverlayKind.NONE -> {}
+                            if (desiredKind == OverlayKind.LIGHT) {
+                                showLightOverlay(penaltyVal)
                             }
                         }
                     }
                 }
 
-                delay(1500)
+                delay(1000)
             }
         }
     }
@@ -121,7 +128,6 @@ class PenaltyWatcherService : Service() {
         return result
     }
 
-    /** 2.0 <= PenaltyValue < 5.0 の軽度ペナルティ (メッセージ表示、即閉じられる) */
     private fun showLightOverlay(penaltyVal: Double) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) return
         val density = resources.displayMetrics.density
@@ -166,16 +172,16 @@ class PenaltyWatcherService : Service() {
         }
     }
 
-    /** PenaltyValue >= 5.0 の重度ペナルティ。「もっと禁煙してください！」+ 1分間(60秒)操作不能 */
-    private fun showHeavyOverlay(penaltyVal: Double) {
+    /** 🚨 重度ペナルティ: 60秒間カウントダウン。タイマー完了まで絶対解除不可 */
+    private fun showHeavyOverlay(repo: AppRepo) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) return
         val density = resources.displayMetrics.density
 
         val countdownText = TextView(this).apply {
             setTextColor(Color.parseColor("#8A9099"))
-            textSize = 13f
+            textSize = 14f
             gravity = Gravity.CENTER
-            text = "あと60秒は操作できません"
+            text = "あと${repo.getRemainingPenaltySeconds()}秒は操作できません"
         }
         val closeButton = Button(this).apply {
             text = "閉じる"
@@ -195,7 +201,7 @@ class PenaltyWatcherService : Service() {
             gravity = Gravity.CENTER
         })
         card.addView(TextView(this).apply {
-            text = String.format("重み付きペナルティ指数: %.1f (5.0以上)", penaltyVal)
+            text = String.format("重み付きペナルティ指数: %.1f (5.0以上)", repo.calculateWeightedPenaltyValue())
             setTextColor(Color.parseColor("#CBD0D6"))
             textSize = 14f
             gravity = Gravity.CENTER
@@ -219,15 +225,15 @@ class PenaltyWatcherService : Service() {
         currentOverlayKind = OverlayKind.HEAVY
 
         scope.launch {
-            for (secondsLeft in 59 downTo 1) {
+            while (isActive && repo.isHeavyPenaltyActive()) {
+                val rem = repo.getRemainingPenaltySeconds()
+                countdownText.text = "あと${rem}秒は操作できません"
                 delay(1000)
-                if (overlayView !== root) return@launch
-                countdownText.text = "あと${secondsLeft}秒は操作できません"
             }
-            delay(1000)
-            if (overlayView !== root) return@launch
-            countdownText.text = ""
-            closeButton.visibility = View.VISIBLE
+            if (overlayView === root) {
+                countdownText.text = ""
+                closeButton.visibility = View.VISIBLE
+            }
         }
     }
 
