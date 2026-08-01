@@ -49,7 +49,8 @@ class PenaltyWatcherService : Service() {
     private var watching = false
     private var overlayView: View? = null
     private var currentOverlayKind: OverlayKind = OverlayKind.NONE
-    private var lastForegroundPackage: String? = null
+    private var stableForeignPackage: String? = null
+    private var stableForeignStreak: Int = 0
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -73,25 +74,40 @@ class PenaltyWatcherService : Service() {
         scope.launch {
             while (isActive) {
                 val fg = getForegroundPackage()
-                val report = repo.getTodayReport()
-                val weeklyTotal = repo.getWeeklyTotal()
-                val desiredKind = when {
-                    weeklyTotal >= 2 -> OverlayKind.HEAVY
-                    report.reported && report.smoked -> OverlayKind.LIGHT
-                    else -> OverlayKind.NONE
-                }
 
-                if (desiredKind == OverlayKind.NONE || fg == packageName) {
+                if (fg == null || fg == packageName) {
+                    // 自アプリを使っている間は出さない。権限ダイアログ等がusage統計上
+                    // 一瞬別パッケージとして記録されることがあるので、その揺れも
+                    // ここでリセットしてノイズとして扱う。
                     removeOverlay()
-                } else if (fg != null && (fg != lastForegroundPackage || desiredKind != currentOverlayKind)) {
-                    removeOverlay()
-                    when (desiredKind) {
-                        OverlayKind.HEAVY -> showHeavyOverlay(weeklyTotal)
-                        OverlayKind.LIGHT -> showLightOverlay(report.count)
-                        OverlayKind.NONE -> {}
+                    stableForeignPackage = null
+                    stableForeignStreak = 0
+                } else {
+                    // 同じ他アプリが2回連続(=3秒)観測できて初めて「本当に他アプリへ
+                    // 切り替わった」とみなす。1回だけの揺れで即座に出さないため。
+                    stableForeignStreak = if (fg == stableForeignPackage) stableForeignStreak + 1 else 1
+                    stableForeignPackage = fg
+
+                    if (stableForeignStreak >= 2) {
+                        val report = repo.getTodayReport()
+                        val weeklyTotal = repo.getWeeklyTotal()
+                        val desiredKind = when {
+                            weeklyTotal >= 2 -> OverlayKind.HEAVY
+                            report.reported && report.smoked -> OverlayKind.LIGHT
+                            else -> OverlayKind.NONE
+                        }
+                        if (desiredKind == OverlayKind.NONE) {
+                            removeOverlay()
+                        } else if (overlayView == null || currentOverlayKind != desiredKind) {
+                            removeOverlay()
+                            when (desiredKind) {
+                                OverlayKind.HEAVY -> showHeavyOverlay(weeklyTotal)
+                                OverlayKind.LIGHT -> showLightOverlay(report.count)
+                                OverlayKind.NONE -> {}
+                            }
+                        }
                     }
                 }
-                if (fg != null) lastForegroundPackage = fg
 
                 delay(1500)
             }

@@ -82,8 +82,11 @@ class MainActivity : ComponentActivity() {
                     )
 
                     // 1週間に2本以上吸っている場合、アプリを開くたびに1分間閉じられない
-                    // 重いペナルティ画面を表示する(絶対要件のメッセージ)
-                    var showHeavyPenalty by remember(uiState.weeklyTotal >= 2) {
+                    // 重いペナルティ画面を表示する(絶対要件のメッセージ)。
+                    // キーを付けずにrememberすることで、この画面を開いた瞬間の状態だけで
+                    // 一度だけ判定する。保存操作の直後に条件を満たしても、同じ滞在中に
+                    // 即座には出てこないようにするため。
+                    var showHeavyPenalty by remember {
                         mutableStateOf(uiState.weeklyTotal >= 2)
                     }
                     if (showHeavyPenalty) {
