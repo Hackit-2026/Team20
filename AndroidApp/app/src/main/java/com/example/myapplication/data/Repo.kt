@@ -112,7 +112,6 @@ class AppRepo(context: Context) {
 
     /**
      * 🚨 1日通知放置時の自動ペナルティ加算処理
-     * 1日放置して未入力の場合、ペナルティとして1日の目標本数分 (dailyGoal) が強制自動加算
      */
     fun checkAndApplyPenalty() {
         val data = loadData()
@@ -178,7 +177,6 @@ class AppRepo(context: Context) {
             put(today, count)
         }
 
-        // ポイント計算ルール: (本数 - 1) pt
         var totalPoints = 0
         newCounts.values.forEach { c ->
             totalPoints += (c - 1)
@@ -196,7 +194,7 @@ class AppRepo(context: Context) {
     fun getFeed(): List<TimelinePost> = loadData().feed
 
     /**
-     * 🌐 サーバー (GET /api/feed) から最新のタイムラインとコメント一覧を取得・正規化
+     * 🌐 サーバー (GET /api/feed) から最新のタイムラインとSQL生成済コメントを取得
      */
     suspend fun fetchFeedFromServer(): List<TimelinePost> = withContext(Dispatchers.IO) {
         val configuredUrl = getServerUrl().trimEnd('/')
@@ -218,19 +216,16 @@ class AppRepo(context: Context) {
                 if (conn.responseCode == 200) {
                     val responseText = conn.inputStream.bufferedReader().use { it.readText() }
                     val serverPosts = json.decodeFromString<List<TimelinePost>>(responseText)
-                    if (serverPosts.isNotEmpty()) {
-                        // コメントリストの相互補完・100%全件展開
-                        val fixedPosts = serverPosts.map { p ->
-                            val validComments = p.getCommentsList()
-                            p.copy(
-                                memberComments = validComments,
-                                comments = validComments
-                            )
-                        }
-                        val data = loadData()
-                        saveData(data.copy(feed = fixedPosts))
-                        return@withContext fixedPosts
+                    val fixedPosts = serverPosts.map { p ->
+                        val validComments = p.getCommentsList()
+                        p.copy(
+                            memberComments = validComments,
+                            comments = validComments
+                        )
                     }
+                    val data = loadData()
+                    saveData(data.copy(feed = fixedPosts))
+                    return@withContext fixedPosts
                 }
             } catch (e: Exception) {
                 Log.d("AppRepo", "Fetch feed from $urlString failed: ${e.message}")
@@ -240,7 +235,8 @@ class AppRepo(context: Context) {
     }
 
     /**
-     * 🌐 サーバー (FastAPI + LM Studio) に対して投稿を直接送信し、生成コメントを確実に取得
+     * 🌐 投稿受信時: 即座（0.05秒）にサーバーへPOSTし、ローカルフィードへ即反映。
+     * コメントはサーバー側バックグラウンドタスクでSQL生成され、リロード時に一括表示される。
      */
     suspend fun postToTimelineServer(text: String): TimelinePost? = withContext(Dispatchers.IO) {
         val configuredUrl = getServerUrl().trimEnd('/')
@@ -253,7 +249,7 @@ class AppRepo(context: Context) {
         ).distinct()
 
         for (urlString in candidateUrls) {
-            Log.d("AppRepo", "Attempting HTTP POST to server: $urlString")
+            Log.d("AppRepo", "Attempting fast HTTP POST to server: $urlString")
             try {
                 val url = URL(urlString)
                 val conn = url.openConnection() as HttpURLConnection
@@ -261,8 +257,8 @@ class AppRepo(context: Context) {
                 conn.setRequestProperty("Content-Type", "application/json; utf-8")
                 conn.setRequestProperty("Accept", "application/json")
                 conn.doOutput = true
-                conn.connectTimeout = 8000
-                conn.readTimeout = 120000 // LM Studio 生成待ち
+                conn.connectTimeout = 5000
+                conn.readTimeout = 5000 // 即時応答
 
                 val reqBody = json.encodeToString(CreatePostReq(author = "あなた", text = text))
                 conn.outputStream.use { os ->
@@ -270,39 +266,31 @@ class AppRepo(context: Context) {
                 }
 
                 val responseCode = conn.responseCode
-                Log.d("AppRepo", "Server response code from $urlString: $responseCode")
+                Log.d("AppRepo", "Server fast response code from $urlString: $responseCode")
 
                 if (responseCode == 200) {
                     val responseText = conn.inputStream.bufferedReader().use { it.readText() }
-                    Log.d("AppRepo", "Server response body: $responseText")
+                    Log.d("AppRepo", "Server fast response body: $responseText")
                     val rawPost = json.decodeFromString<TimelinePost>(responseText)
                     
-                    // サーバーから返った生成コメントを確実に保持・同期
-                    val validComments = rawPost.getCommentsList()
-                    val fixedPost = rawPost.copy(
-                        memberComments = validComments,
-                        comments = validComments
-                    )
-
                     val data = loadData()
-                    saveData(data.copy(feed = listOf(fixedPost) + data.feed.filter { it.postId != fixedPost.postId }))
-                    return@withContext fixedPost
+                    saveData(data.copy(feed = listOf(rawPost) + data.feed.filter { it.postId != rawPost.postId }))
+                    return@withContext rawPost
                 }
             } catch (e: Exception) {
-                Log.e("AppRepo", "HTTP connection failed for $urlString: ${e.message}", e)
+                Log.e("AppRepo", "Fast HTTP connection failed for $urlString: ${e.message}")
             }
         }
         
-        Log.w("AppRepo", "All server connection attempts failed. Using local fallback.")
-        val fallbackComments = generateMemberComments()
+        Log.w("AppRepo", "All server fast connection attempts failed. Using local fallback.")
         val fallbackPost = TimelinePost(
             postId = "p_${System.currentTimeMillis()}",
             author = "あなた",
             isNpc = false,
             text = text,
             timestamp = "たった今",
-            memberComments = fallbackComments,
-            comments = fallbackComments
+            memberComments = emptyList(),
+            comments = emptyList()
         )
         val data = loadData()
         saveData(data.copy(feed = listOf(fallbackPost) + data.feed))
@@ -310,7 +298,6 @@ class AppRepo(context: Context) {
     }
 
     fun postToTimeline(text: String) {
-        val fallbackComments = generateMemberComments()
         val data = loadData()
         val newPost = TimelinePost(
             postId = "p_${System.currentTimeMillis()}",
@@ -318,8 +305,8 @@ class AppRepo(context: Context) {
             isNpc = false,
             text = text,
             timestamp = "たった今",
-            memberComments = fallbackComments,
-            comments = fallbackComments
+            memberComments = emptyList(),
+            comments = emptyList()
         )
         saveData(data.copy(feed = listOf(newPost) + data.feed))
     }
