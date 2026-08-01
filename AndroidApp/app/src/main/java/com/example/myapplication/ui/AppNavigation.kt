@@ -8,7 +8,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.NavHost
+import com.example.myapplication.notify.Reminder
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 
@@ -17,11 +19,17 @@ fun AppNavigation(viewModel: MainViewModel) {
     val navController = rememberNavController()
     val uiState by viewModel.uiState.collectAsState()
 
-    NavHost(navController = navController, startDestination = "home") {
+    // 設定が未完了の場合はオンボーディングから開始
+    val startDestination = if (uiState.isInitialized) "home" else "onboarding"
+
+    NavHost(navController = navController, startDestination = startDestination) {
         composable("onboarding") {
+            val context = LocalContext.current
             OnboardingScreen(
                 onStart = { days, dailyGoal ->
                     viewModel.saveSettings(days, dailyGoal, uiState.settings.notifyHour)
+                    // 通知を有効化
+                    Reminder.enableDaily(context, uiState.settings.notifyHour, 0)
                     navController.navigate("home") {
                         popUpTo("onboarding") { inclusive = true }
                     }
@@ -37,7 +45,9 @@ fun AppNavigation(viewModel: MainViewModel) {
                 onIncrement = { viewModel.incrementCount() },
                 onDecrement = { viewModel.decrementCount() },
                 onNavigateToCalendar = { navController.navigate("calendar") },
-                onNavigateToResult = { navController.navigate("result") }
+                onNavigateToResult = { navController.navigate("result") },
+                onResetData = { viewModel.resetData() },
+                onInjectDummyData = { viewModel.injectDummyData() }
             )
         }
         composable("calendar") {
@@ -58,12 +68,5 @@ fun AppNavigation(viewModel: MainViewModel) {
                 }
             )
         }
-    }
-}
-
-@Composable
-fun CalendarScreen(viewModel: MainViewModel, onBack: () -> Unit) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text("Calendar Screen (Member B)")
     }
 }
