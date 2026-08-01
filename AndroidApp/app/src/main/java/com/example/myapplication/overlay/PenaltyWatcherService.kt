@@ -29,11 +29,17 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
+private enum class OverlayKind { NONE, LIGHT, HEAVY }
+
 /**
- * ペナルティ中(=今日「吸った」と申告している間)に、他のアプリを開いたことを
- * 検知して警告オーバーレイを重ねて表示するための常駐サービス。
+ * ペナルティ中に、他のアプリを開いたことを検知して警告オーバーレイを重ねて
+ * 表示するための常駐サービス。「アプリを使う時にメッセージを表示する。通知ではない」
+ * という絶対要件のための実装。
  *
- * 「アプリを使う時にメッセージを表示する。通知ではない」という要件のための実装。
+ * 2段階ある:
+ * - LIGHT: 今日「吸った」と申告している間、閉じるボタンで即座に閉じられる警告
+ * - HEAVY: 過去7日間の合計が2本以上のとき、60秒間閉じられない強めの警告
+ *
  * UsageStatsManagerでフォアグラウンドアプリの切り替わりをポーリングし、
  * 自アプリ以外に切り替わった瞬間だけオーバーレイを表示する。
  */
@@ -42,6 +48,7 @@ class PenaltyWatcherService : Service() {
     private val scope = CoroutineScope(Dispatchers.Main + Job())
     private var watching = false
     private var overlayView: View? = null
+    private var currentOverlayKind: OverlayKind = OverlayKind.NONE
     private var lastForegroundPackage: String? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -67,14 +74,22 @@ class PenaltyWatcherService : Service() {
             while (isActive) {
                 val fg = getForegroundPackage()
                 val report = repo.getTodayReport()
-                val penaltyActive = report.reported && report.smoked
+                val weeklyTotal = repo.getWeeklyTotal()
+                val desiredKind = when {
+                    weeklyTotal >= 2 -> OverlayKind.HEAVY
+                    report.reported && report.smoked -> OverlayKind.LIGHT
+                    else -> OverlayKind.NONE
+                }
 
-                if (!penaltyActive) {
+                if (desiredKind == OverlayKind.NONE || fg == packageName) {
                     removeOverlay()
-                } else if (fg != null && fg != packageName && fg != lastForegroundPackage) {
-                    showOverlay(report.count)
-                } else if (fg == packageName) {
+                } else if (fg != null && (fg != lastForegroundPackage || desiredKind != currentOverlayKind)) {
                     removeOverlay()
+                    when (desiredKind) {
+                        OverlayKind.HEAVY -> showHeavyOverlay(weeklyTotal)
+                        OverlayKind.LIGHT -> showLightOverlay(report.count)
+                        OverlayKind.NONE -> {}
+                    }
                 }
                 if (fg != null) lastForegroundPackage = fg
 
@@ -99,11 +114,8 @@ class PenaltyWatcherService : Service() {
         return result
     }
 
-    private fun showOverlay(count: Int) {
-        if (overlayView != null) return
+    private fun showLightOverlay(count: Int) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) return
-
-        val wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         val density = resources.displayMetrics.density
 
         val card = LinearLayout(this).apply {
@@ -141,6 +153,79 @@ class PenaltyWatcherService : Service() {
             ).apply { gravity = Gravity.CENTER }
         )
 
+        if (addOverlayView(root)) {
+            currentOverlayKind = OverlayKind.LIGHT
+        }
+    }
+
+    /** 週2本以上の重いペナルティ。60秒間は閉じるボタンを出さず操作を受け付けない。 */
+    private fun showHeavyOverlay(weeklyTotal: Int) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) return
+        val density = resources.displayMetrics.density
+
+        val countdownText = TextView(this).apply {
+            setTextColor(Color.parseColor("#8A9099"))
+            textSize = 12f
+            gravity = Gravity.CENTER
+            text = "あと60秒は操作できません"
+        }
+        val closeButton = Button(this).apply {
+            text = "閉じる"
+            visibility = View.GONE
+            setOnClickListener { removeOverlay() }
+        }
+
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding((32 * density).toInt(), (32 * density).toInt(), (32 * density).toInt(), (32 * density).toInt())
+        }
+        card.addView(TextView(this).apply {
+            text = "もっと禁煙してください！"
+            setTextColor(Color.parseColor("#FF6B6B"))
+            textSize = 24f
+            gravity = Gravity.CENTER
+        })
+        card.addView(TextView(this).apply {
+            text = "今週の合計: ${weeklyTotal}本"
+            setTextColor(Color.parseColor("#CBD0D6"))
+            textSize = 14f
+            gravity = Gravity.CENTER
+            setPadding(0, (12 * density).toInt(), 0, (24 * density).toInt())
+        })
+        card.addView(countdownText)
+        card.addView(closeButton)
+
+        val root = FrameLayout(this).apply {
+            setBackgroundColor(Color.parseColor("#FF1A1418"))
+        }
+        root.addView(
+            card,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+            ).apply { gravity = Gravity.CENTER }
+        )
+
+        if (!addOverlayView(root)) return
+        currentOverlayKind = OverlayKind.HEAVY
+
+        scope.launch {
+            for (secondsLeft in 59 downTo 1) {
+                delay(1000)
+                if (overlayView !== root) return@launch // 途中で閉じられた/差し替わった場合は打ち切り
+                countdownText.text = "あと${secondsLeft}秒は操作できません"
+            }
+            delay(1000)
+            if (overlayView !== root) return@launch
+            countdownText.text = ""
+            closeButton.visibility = View.VISIBLE
+        }
+    }
+
+    /** WindowManagerにビューを追加する共通処理。成功したらtrue。 */
+    private fun addOverlayView(root: View): Boolean {
+        val wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
         } else {
@@ -154,23 +239,27 @@ class PenaltyWatcherService : Service() {
             0,
             PixelFormat.TRANSLUCENT,
         )
-
-        try {
+        return try {
             wm.addView(root, params)
             overlayView = root
+            true
         } catch (e: Exception) {
             // オーバーレイ権限が取り消されている等、失敗しても常駐サービス自体は落とさない
+            false
         }
     }
 
     private fun removeOverlay() {
-        val view = overlayView ?: return
-        try {
-            (getSystemService(Context.WINDOW_SERVICE) as WindowManager).removeView(view)
-        } catch (e: Exception) {
-            // no-op
+        val view = overlayView
+        if (view != null) {
+            try {
+                (getSystemService(Context.WINDOW_SERVICE) as WindowManager).removeView(view)
+            } catch (e: Exception) {
+                // no-op
+            }
         }
         overlayView = null
+        currentOverlayKind = OverlayKind.NONE
     }
 
     private fun buildForegroundNotification(): android.app.Notification {
