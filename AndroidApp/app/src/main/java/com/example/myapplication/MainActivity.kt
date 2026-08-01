@@ -27,6 +27,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        com.example.myapplication.notify.Reminder.createChannel(this)
         enableEdgeToEdge()
         setContent {
             MyApplicationTheme {
