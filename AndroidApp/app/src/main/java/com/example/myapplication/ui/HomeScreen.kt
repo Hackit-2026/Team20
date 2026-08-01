@@ -90,7 +90,7 @@ fun HomeScreen(
                 Text("-1")
             }
             Button(onClick = onIncrement, modifier = Modifier.size(width = 120.dp, height = 48.dp)) {
-                Text("吸った +1")
+                Text("至福の +1")
             }
         }
 

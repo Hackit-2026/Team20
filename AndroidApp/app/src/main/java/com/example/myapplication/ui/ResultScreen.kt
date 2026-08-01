@@ -44,9 +44,13 @@ fun ResultScreen(
         )
 
         Text(
-            text = "目標合計 ${targetTotal}本 / 実際合計 ${actualTotal}本",
+            text = if (actualTotal >= targetTotal) "育成大成功！素晴らしい紫煙です。" else "もっと高みを目指せたはずだ…",
             style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.padding(top = 24.dp),
+        )
+        Text(
+            text = "目標合計 ${targetTotal}本 / 実際合計 ${actualTotal}本",
+            style = MaterialTheme.typography.bodyLarge,
         )
         Text(
             text = "1日平均 %.1f本".format(averagePerDay),
