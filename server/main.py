@@ -5,16 +5,21 @@ from typing import List, Optional
 from datetime import datetime
 import asyncio
 import httpx
+import sqlite3
 import random
 import logging
+import os
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("server")
 
+DB_PATH = os.path.join(os.path.dirname(__file__), "community.db")
+SCHEMA_PATH = os.path.join(os.path.dirname(__file__), "schema.sql")
+
 app = FastAPI(
     title="ヤニモグラ (YANI-GOTCHI) バックエンドサーバー",
-    description="コミュニティタイムライン & LM Studio(gemma4-12B qat) 連携バックエンド",
-    version="2.0.0"
+    description="SQLデータベース(SQLite)永続化 & LM Studio(gemma4-12B qat) 連携サーバー",
+    version="2.1.0"
 )
 
 # CORS設定（Androidエミュレータ / 実機からの接続許可）
@@ -34,6 +39,22 @@ LM_STUDIO_URLS = [
 ]
 MODEL_NAME = "gemma4-12B qat"
 
+# --- SQLite データベース初期化関数 ---
+def init_db():
+    """SQLテーブルを自動生成・初期化"""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    if os.path.exists(SCHEMA_PATH):
+        with open(SCHEMA_PATH, "r", encoding="utf-8") as f:
+            schema_sql = f.read()
+            cursor.executescript(schema_sql)
+    conn.commit()
+    conn.close()
+    logger.info(f"SQLite DB initialized at {DB_PATH}")
+
+# サーバー起動時にSQL DBを初期化
+init_db()
+
 # --- データモデル定義 ---
 class MemberComment(BaseModel):
     name: str
@@ -52,7 +73,7 @@ class CreatePostRequest(BaseModel):
     author: str = "あなた"
     text: str
 
-# --- 4人のキャラクター設定（※「AI」という表現は一切排除） ---
+# --- 4人のキャラクター設定 ---
 PERSONA_CONFIGS = [
     {
         "name": "熱血仲間・修造",
@@ -110,11 +131,8 @@ NPC_POST_TEMPLATES = [
     "仕事の合間の1本をグッと堪えてお茶飲んだ！"
 ]
 
-# メモリ内タイムラインDB
-posts_db: List[Post] = []
-
 async def fetch_llm_comment(persona: dict, user_text: str) -> str:
-    """LM Studio (172.0.0.1:11434 / 127.0.0.1:11434 / gemma4-12B qat) へ実リクエストを送信してコメント生成"""
+    """LM Studio へ実リクエストを送信してコメント生成"""
     payload = {
         "model": MODEL_NAME,
         "messages": [
@@ -128,22 +146,17 @@ async def fetch_llm_comment(persona: dict, user_text: str) -> str:
     for url in LM_STUDIO_URLS:
         try:
             async with httpx.AsyncClient(timeout=8.0) as client:
-                logger.info(f"Connecting to LM Studio ({url}) with model {MODEL_NAME}...")
                 response = await client.post(url, json=payload)
                 if response.status_code == 200:
                     data = response.json()
                     content = data["choices"][0]["message"]["content"].strip()
-                    # 「AI」という単語が含まれていた場合は除去
                     content = content.replace("AI", "").replace("人工知能", "").strip()
-                    logger.info(f"Received LLM response for {persona['name']}: {content}")
                     return content
         except Exception as e:
-            logger.warning(f"LM Studio connection to {url} failed: {e}")
+            pass
 
-    # LM Studioがオフラインの際のフォールバック（自然な実推論遅延を再現）
     await asyncio.sleep(random.uniform(0.5, 1.2))
     return random.choice(persona["fallback_templates"])
-
 
 async def generate_all_comments(user_text: str) -> List[MemberComment]:
     """4人のキャラクターから並行してリアルタイムコメントを生成"""
@@ -161,46 +174,78 @@ async def generate_all_comments(user_text: str) -> List[MemberComment]:
         )
     return comments
 
+# --- SQL DB 操作関数 ---
+
+def get_all_posts_from_db() -> List[Post]:
+    """SQLデータベースからすべての投稿とコメントを時系列降順で取得"""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT post_id, author, is_npc, text, timestamp FROM posts ORDER BY timestamp DESC")
+    post_rows = cursor.fetchall()
+    
+    posts_list = []
+    for row in post_rows:
+        post_id, author, is_npc, text, timestamp = row
+        cursor.execute("SELECT name, avatar, comment FROM comments WHERE post_id = ? ORDER BY comment_id ASC", (post_id,))
+        comment_rows = cursor.fetchall()
+        
+        comments = [MemberComment(name=r[0], avatar=r[1], comment=r[2]) for r in comment_rows]
+        posts_list.append(
+            Post(
+                postId=post_id,
+                author=author,
+                isNpc=bool(is_npc),
+                text=text,
+                timestamp=timestamp,
+                comments=comments
+            )
+        )
+    conn.close()
+    return posts_list
+
+def save_post_to_db(post: Post):
+    """SQLデータベースに新規投稿とコメントを永続保存"""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute(
+        "INSERT INTO posts (post_id, author, is_npc, text, timestamp) VALUES (?, ?, ?, ?, ?)",
+        (post.postId, post.author, 1 if post.isNpc else 0, post.text, post.timestamp)
+    )
+    
+    for comment in post.comments:
+        cursor.execute(
+            "INSERT INTO comments (post_id, name, avatar, comment, timestamp) VALUES (?, ?, ?, ?, ?)",
+            (post.postId, comment.name, comment.avatar, comment.comment, post.timestamp)
+        )
+    
+    conn.commit()
+    conn.close()
+    logger.info(f"Post {post.postId} saved to SQL Database.")
+
 # --- エンドポイント ---
 
 @app.get("/")
 def read_root():
     return {
         "status": "online",
-        "server": "ヤニモグラ Python Backend (LM Studio Direct Integration)",
-        "lm_studio_model": MODEL_NAME,
-        "target_ip": "172.0.0.1:11434 / 127.0.0.1:11434"
+        "server": "ヤニモグラ SQL Database Server (SQLite + LM Studio)",
+        "db_location": DB_PATH,
+        "lm_studio_model": MODEL_NAME
     }
 
 @app.get("/api/feed", response_model=List[Post])
 def get_feed():
-    """タイムライン投稿および全メンバーのコメント一覧取得"""
-    if not posts_db:
-        # 初回起動時にデフォルト投稿を挿入
-        posts_db.append(
-            Post(
-                postId="post_init_1",
-                author="減煙挑戦中のタカシ",
-                isNpc=True,
-                text="今日で我慢3日目！手が寂しいけど耐えてる！",
-                timestamp="2026-08-01 15:30",
-                comments=[
-                    MemberComment(name="熱血仲間・修造", avatar="🔥", comment="3日突破はお前の勝利だ！その情熱を燃やし続けろ！！"),
-                    MemberComment(name="ツンデレ友達・アスカ", avatar="😳", comment="ふ、ふん！3日くらいで喜ばないでよね！…応援してるけど。"),
-                    MemberComment(name="Dr.ヘルス", avatar="👨‍⚕️", comment="3日目は体内のニコチンが抜ける大事な節目です。素晴らしい！"),
-                    MemberComment(name="ヤニモグラ", avatar="👹", comment="うがぁ〜！タバコを吸え〜！俺を餓死させる気か〜！")
-                ]
-            )
-        )
-    return posts_db
+    """SQLデータベースからタイムライン投稿およびコメント一覧を取得"""
+    return get_all_posts_from_db()
 
 @app.post("/api/posts", response_model=Post)
 async def create_post(req: CreatePostRequest):
-    """ユーザーがつぶやきを投稿 -> LM Studio(gemma4-12B qat)経由で4人のメンバーが実遅延付きで同時コメント"""
-    new_id = f"post_{len(posts_db) + 1}_{int(datetime.now().timestamp())}"
+    """ユーザーのつぶやき投稿をSQLデータベースへ永続保存 ＆ メンバーコメント生成"""
+    new_id = f"post_{int(datetime.now().timestamp())}_{random.randint(100, 999)}"
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
     
-    # リアルタイムLLM生成
     comments = await generate_all_comments(req.text)
     
     new_post = Post(
@@ -212,15 +257,15 @@ async def create_post(req: CreatePostRequest):
         comments=comments
     )
     
-    posts_db.insert(0, new_post)
+    save_post_to_db(new_post)
     return new_post
 
 @app.post("/api/cron/bot-post", response_model=Post)
 async def generate_npc_bot_post():
-    """コミュニティメンバー（NPC）からのつぶやき投稿自動生成"""
+    """コミュニティメンバー（NPC）からの定期投稿を生成しSQLデータベースへ永続保存"""
     author = random.choice(NPC_USERS)
     text = random.choice(NPC_POST_TEMPLATES)
-    new_id = f"post_npc_{len(posts_db) + 1}"
+    new_id = f"post_npc_{int(datetime.now().timestamp())}_{random.randint(100, 999)}"
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
     
     comments = await generate_all_comments(text)
@@ -234,7 +279,7 @@ async def generate_npc_bot_post():
         comments=comments
     )
     
-    posts_db.insert(0, npc_post)
+    save_post_to_db(npc_post)
     return npc_post
 
 if __name__ == "__main__":

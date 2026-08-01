@@ -1,6 +1,6 @@
 # アプリ総合要件定義書 (Requirements Definition - 最新確定版)
 
-本ドキュメントは、アプリ「ヤニモグラ」の全画面配置・判定ロジック・レイアウト・ポイント計算・コミュニティタイムライン・LM Studioサーバー連携についての最新かつ完全な上流工程仕様書です。
+本ドキュメントは、アプリ「ヤニモグラ」の全画面配置・判定ロジック・レイアウト・ポイント計算・コミュニティタイムライン・SQLite (SQL) データベース・LM Studioサーバー連携についての最新かつ完全な上流工程仕様書です。
 ※本ドキュメントでは「AI」「人工知能」という表現を排除し、本物の人間・キャラクター（専属メンバー）として定義しています。
 
 ---
@@ -12,6 +12,7 @@
   - タバコを吸った本数に応じて、真っ白で健康なキャラクターが「喫煙し始め」→「ヘビースモーカー」→「ヤニモンスター」へとすくすく（悪魔的に）変化。
   - 0本（我慢した日）にはキャラクターが**禁断症状（ヤニ切れ）**で必死におねだり！
   - アプリ内のタイムラインでは、ユーザーや仲間の投稿に対し、**4人の専属メンバー（熱血仲間・ツンデレ友達・Dr.ヘルス・ヤニモグラ）が一斉に「頑張れ！」「耐えろ！」と温かい応援コメント**をリアルタイムで返信！
+  - 投稿データおよびメンバーコメントデータはすべてサーバー側の **SQL データベース (`server/community.db`)** で永続管理される。
 
 ---
 
@@ -79,29 +80,32 @@
 
 ---
 
-## 5. 🐍 LM Studio 連動 Python バックエンド仕様
-- **接続先サーバー**: `http://172.0.0.1:11434` / `http://127.0.0.1:11434`
-- **使用LLMモデル**: `gemma4-12B qat`
-- **生成挙動**:
-  - ユーザーの投稿文を受け取ると、LM Studio サーバーへ非同期リクエストを並行送信。
-  - リアルタイムな推論時間（生成遅延）を含めて、本物の人間・キャラクターらしい生き生きとしたコメントを返却。
+## 5. 🐍 サーバー側 SQL データベース & LM Studio 仕様
+- **データベースエンジン**: SQLite (`server/community.db`)
+- **SQLスキーマ**: `server/schema.sql` (posts テーブル & comments テーブル)
+- **接続先LLMサーバー**: `http://172.0.0.1:11434` / `http://127.0.0.1:11434` (モデル: `gemma4-12B qat`)
+- **データ管理挙動**:
+  - 投稿内容、投稿者、投稿時間、メンバーコメントはすべて SQL データベースに INSERT / SELECT されて永続保持される。
 
 ---
 
-## 6. データ構造仕様 (JSON)
-```json
-{
-  "settings": {
-    "startDate": "2026-08-01",
-    "days": 7,
-    "dailyGoal": 10,
-    "notifyHour": 21
-  },
-  "counts": {
-    "2026-08-01": 10,
-    "2026-08-02": 0
-  },
-  "savedToday": true,
-  "points": 50
-}
+## 6. SQL データ構造仕様 (`server/schema.sql`)
+```sql
+CREATE TABLE posts (
+    post_id TEXT PRIMARY KEY,
+    author TEXT NOT NULL,
+    is_npc INTEGER NOT NULL DEFAULT 0,
+    text TEXT NOT NULL,
+    timestamp TEXT NOT NULL
+);
+
+CREATE TABLE comments (
+    comment_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    post_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    avatar TEXT NOT NULL,
+    comment TEXT NOT NULL,
+    timestamp TEXT NOT NULL,
+    FOREIGN KEY (post_id) REFERENCES posts(post_id) ON DELETE CASCADE
+);
 ```
