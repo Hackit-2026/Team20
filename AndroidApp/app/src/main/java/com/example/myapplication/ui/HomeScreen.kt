@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -22,16 +21,11 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -64,11 +58,9 @@ fun HomeScreen(
     onIncrementTemp: () -> Unit,
     onDecrementTemp: () -> Unit,
     onSaveReport: () -> Unit,
-    onResetAll: () -> Unit = {},
-    onSubmitForDate: (String, Int) -> Unit = { _, _ -> },
-    onApplyNextGoal: (Double) -> Unit = {},
-    onInject30DaysDemo: () -> Unit = {},
-    onSaveNotifyTime: (Int, Int) -> Unit = { _, _ -> },
+    onNavigateToHistory: () -> Unit,
+    onNavigateToGoalSetting: () -> Unit,
+    onNavigateToDebug: () -> Unit,
     overlayPermissionGranted: Boolean = true,
     usageAccessGranted: Boolean = true,
     onRequestOverlayPermission: () -> Unit = {},
@@ -79,7 +71,6 @@ fun HomeScreen(
         LocalDate.now(ZoneId.of("Asia/Tokyo")).format(DateTimeFormatter.ofPattern("M/d"))
     }
     val report = uiState.today
-    var showDebugPanel by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -98,12 +89,20 @@ fun HomeScreen(
             )
         }
 
+        // 🧭 各専用画面へのナビゲーションバー
+        NavigationHeader(
+            onNavigateToHistory = onNavigateToHistory,
+            onNavigateToGoalSetting = onNavigateToGoalSetting,
+            onNavigateToDebug = onNavigateToDebug
+        )
+
+        // 日付(日本時間)
         Text(
             text = today,
             color = Ink,
-            fontSize = 28.sp,
+            fontSize = 32.sp,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(top = 12.dp),
+            modifier = Modifier.padding(top = 16.dp),
         )
 
         Text(
@@ -118,37 +117,50 @@ fun HomeScreen(
 
         StatusLine(report)
 
-        WeightedAverageSection(
-            uiState = uiState,
-            onApplyNextGoal = onApplyNextGoal
-        )
+        Spacer(modifier = Modifier.height(24.dp))
 
+        // 本数入力 ＆ 保存セクション
         CountSection(
             tempCount = uiState.tempCount,
             onIncrementTemp = onIncrementTemp,
             onDecrementTemp = onDecrementTemp,
             onSaveReport = onSaveReport,
         )
+    }
+}
 
-        HistorySection(allReports = uiState.allReports)
-
-        Spacer(modifier = Modifier.height(24.dp))
-
+/**
+ * 🧭 各機能画面へ遷移するナビルートバー
+ */
+@Composable
+private fun NavigationHeader(
+    onNavigateToHistory: () -> Unit,
+    onNavigateToGoalSetting: () -> Unit,
+    onNavigateToDebug: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly
+    ) {
         OutlinedButton(
-            onClick = { showDebugPanel = !showDebugPanel },
-            modifier = Modifier.fillMaxWidth()
+            onClick = onNavigateToHistory,
+            shape = RoundedCornerShape(20.dp)
         ) {
-            Text(if (showDebugPanel) "🛠️ デバッグ・詳細設定を閉じる" else "🛠️ デバッグ・詳細設定を開く")
+            Text("📊 履歴", fontSize = 13.sp, fontWeight = FontWeight.Bold)
         }
-
-        if (showDebugPanel) {
-            DebugToolsSection(
-                uiState = uiState,
-                onSubmitForDate = onSubmitForDate,
-                onInject30DaysDemo = onInject30DaysDemo,
-                onSaveNotifyTime = onSaveNotifyTime,
-                onResetAll = onResetAll
-            )
+        OutlinedButton(
+            onClick = onNavigateToGoalSetting,
+            shape = RoundedCornerShape(20.dp)
+        ) {
+            Text("🎯 減煙設定", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        }
+        OutlinedButton(
+            onClick = onNavigateToDebug,
+            shape = RoundedCornerShape(20.dp)
+        ) {
+            Text("🛠️ デバッグ", fontSize = 13.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -189,7 +201,7 @@ private fun GoalLine(daysUntilGoal: Long, achieved: Boolean) {
         Text(
             text = "🎉 目標達成(3か月吸っていません)",
             color = Accent,
-            fontSize = 14.sp,
+            fontSize = 15.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(top = 10.dp),
         )
@@ -197,7 +209,7 @@ private fun GoalLine(daysUntilGoal: Long, achieved: Boolean) {
         Text(
             text = "目標(3か月0本)まで残り${daysUntilGoal}日",
             color = MutedSoft,
-            fontSize = 12.sp,
+            fontSize = 13.sp,
             modifier = Modifier.padding(top = 10.dp),
         )
     }
@@ -218,121 +230,10 @@ private fun StatusLine(report: DailyReport) {
     Text(
         text = text,
         color = color,
-        fontSize = 12.sp,
+        fontSize = 13.sp,
         fontWeight = FontWeight.Bold,
         modifier = Modifier.padding(top = 6.dp),
     )
-}
-
-@Composable
-private fun WeightedAverageSection(
-    uiState: UiState,
-    onApplyNextGoal: (Double) -> Unit
-) {
-    var difficulty by remember { mutableDoubleStateOf(1.0) }
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "📊 喫煙量の分析 ＆ 目標減煙設定",
-                style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = Ink
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(text = "直近1週間の重み付き平均:", fontSize = 13.sp, color = Muted)
-                Text(
-                    text = String.format("%.1f 本/日", uiState.weightedAverage),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Accent
-                )
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(text = "今週の1日あたり平均:", fontSize = 13.sp, color = Muted)
-                Text(
-                    text = String.format("%.1f 本/日", uiState.weeklyDailyAverage),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Ink
-                )
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(text = "現在の目標本数:", fontSize = 13.sp, color = Muted)
-                Text(
-                    text = "${uiState.currentGoal} 本",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Accent
-                )
-            }
-
-            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-
-            Text(
-                text = "🎯 次の目標を少しずつ減らす",
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
-                color = Ink
-            )
-            Text(
-                text = "きつさの値: ${String.format("%.1f", difficulty)} (今週平均 - きつさ)",
-                fontSize = 11.sp,
-                color = MutedSoft,
-                modifier = Modifier.padding(top = 2.dp)
-            )
-
-            Slider(
-                value = difficulty.toFloat(),
-                onValueChange = { difficulty = it.toDouble() },
-                valueRange = 0.0f..3.0f,
-                steps = 5,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            val calculatedNext = if (uiState.currentGoal <= 0) 0 
-                                 else kotlin.math.floor(uiState.weeklyDailyAverage - difficulty).toInt().coerceIn(0, uiState.currentGoal)
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "計算後の次回目標: ${calculatedNext}本",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (calculatedNext == 0) Accent else Ink
-                )
-                Button(
-                    onClick = { onApplyNextGoal(difficulty) },
-                    colors = ButtonDefaults.buttonColors(containerColor = Accent)
-                ) {
-                    Text("新目標を適用", fontSize = 12.sp)
-                }
-            }
-        }
-    }
 }
 
 @Composable
@@ -342,198 +243,71 @@ private fun CountSection(
     onDecrementTemp: () -> Unit,
     onSaveReport: () -> Unit,
 ) {
-    Text(
-        text = "何本吸いましたか？",
-        color = Muted,
-        fontSize = 14.sp,
-        modifier = Modifier.padding(top = 24.dp),
-    )
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(24.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(top = 12.dp),
-    ) {
-        OutlinedButton(
-            onClick = onDecrementTemp,
-            modifier = Modifier.size(56.dp),
-            shape = CircleShape,
-            contentPadding = PaddingValues(0.dp),
-        ) {
-            Text("−", fontSize = 22.sp)
-        }
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(text = "$tempCount", color = Ink, fontSize = 32.sp, fontWeight = FontWeight.Bold)
-            Text(
-                text = "本",
-                color = Muted,
-                fontSize = 14.sp,
-                modifier = Modifier.padding(start = 2.dp, bottom = 4.dp),
-            )
-        }
-        Button(
-            onClick = onIncrementTemp,
-            modifier = Modifier.size(56.dp),
-            shape = CircleShape,
-            colors = ButtonDefaults.buttonColors(containerColor = Accent),
-            contentPadding = PaddingValues(0.dp),
-        ) {
-            Text("+", fontSize = 22.sp, fontWeight = FontWeight.Bold)
-        }
-    }
-    Button(
-        onClick = onSaveReport,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 20.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = Ink),
-    ) {
-        Text("保存")
-    }
-}
-
-@Composable
-private fun HistorySection(allReports: Map<String, DailyReport>) {
-    val sortedDates = remember(allReports) { allReports.keys.sortedDescending() }
-    if (sortedDates.isEmpty()) return
-
-    Column(modifier = Modifier.fillMaxWidth().padding(top = 24.dp)) {
-        Text(
-            text = "履歴",
-            color = Muted,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Bold,
-        )
-        sortedDates.take(7).forEach { date ->
-            val entry = allReports.getValue(date)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(text = date, color = Muted, fontSize = 12.sp)
-                Text(
-                    text = if (entry.smoked) "吸った(${entry.count}本)" else "吸わなかった",
-                    color = if (entry.smoked) Warn else Accent,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun DebugToolsSection(
-    uiState: UiState,
-    onSubmitForDate: (String, Int) -> Unit,
-    onInject30DaysDemo: () -> Unit,
-    onSaveNotifyTime: (Int, Int) -> Unit,
-    onResetAll: () -> Unit
-) {
-    var dateInput by remember { mutableStateOf(LocalDate.now().toString()) }
-    var countInput by remember { mutableStateOf("5") }
-
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 16.dp),
+        modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(20.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
             Text(
-                text = "🛠️ デバッグ機能パネル",
-                style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = Ink
+                text = "何本吸いましたか？",
+                color = Muted,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold
             )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Text(text = "📅 何月何日を選択してデータを追加 (デバッグ用)", fontSize = 12.sp, fontWeight = FontWeight.Bold)
             Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(top = 20.dp),
             ) {
-                OutlinedTextField(
-                    value = dateInput,
-                    onValueChange = { dateInput = it },
-                    label = { Text("日付 (YYYY-MM-DD)", fontSize = 10.sp) },
-                    modifier = Modifier.weight(2f),
-                    singleLine = true
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                OutlinedTextField(
-                    value = countInput,
-                    onValueChange = { countInput = it.filter { c -> c.isDigit() } },
-                    label = { Text("本数", fontSize = 10.sp) },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true
-                )
-            }
-            Button(
-                onClick = {
-                    val count = countInput.toIntOrNull() ?: 0
-                    if (dateInput.isNotBlank()) {
-                        onSubmitForDate(dateInput, count)
-                    }
-                },
-                modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Accent)
-            ) {
-                Text("指定日付のデータを登録", fontSize = 12.sp)
-            }
-
-            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-
-            Text(text = "📊 過去30日間のデモデータを一括追加", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            Button(
-                onClick = onInject30DaysDemo,
-                modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Accent)
-            ) {
-                Text("過去30日分のデモデータを投入", fontSize = 12.sp)
-            }
-
-            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-
-            Text(text = "⏰ リマインド通知時刻の設定", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(text = "現在の時刻: ${uiState.notifyHour}時 ${uiState.notifyMinute}分", fontSize = 12.sp)
-                Row {
-                    OutlinedButton(onClick = {
-                        val newH = (uiState.notifyHour + 1) % 24
-                        onSaveNotifyTime(newH, uiState.notifyMinute)
-                    }) { Text("時+", fontSize = 11.sp) }
-                    Spacer(modifier = Modifier.width(4.dp))
-                    OutlinedButton(onClick = {
-                        val newM = (uiState.notifyMinute + 15) % 60
-                        onSaveNotifyTime(uiState.notifyHour, newM)
-                    }) { Text("分+", fontSize = 11.sp) }
+                OutlinedButton(
+                    onClick = onDecrementTemp,
+                    modifier = Modifier.size(64.dp),
+                    shape = CircleShape,
+                    contentPadding = PaddingValues(0.dp),
+                ) {
+                    Text("−", fontSize = 26.sp)
+                }
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(text = "$tempCount", color = Ink, fontSize = 42.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = "本",
+                        color = Muted,
+                        fontSize = 16.sp,
+                        modifier = Modifier.padding(start = 4.dp, bottom = 6.dp),
+                    )
+                }
+                Button(
+                    onClick = onIncrementTemp,
+                    modifier = Modifier.size(64.dp),
+                    shape = CircleShape,
+                    colors = ButtonDefaults.buttonColors(containerColor = Accent),
+                    contentPadding = PaddingValues(0.dp),
+                ) {
+                    Text("+", fontSize = 26.sp, fontWeight = FontWeight.Bold)
                 }
             }
-
-            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-
-            Text(text = "🚨 全データ初期化", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Warn)
             Button(
-                onClick = onResetAll,
-                modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Warn)
+                onClick = onSaveReport,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 24.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Ink),
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Text("すべてのデータをリセットして最初からスタート", fontSize = 12.sp)
+                Text("保存", fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 4.dp))
             }
         }
     }
 }
 
 /**
- * 1週間に2本以上吸った場合の重いペナルティ。1分間は閉じられない全画面ブロック。
+ * 1週間に2本以上吸った場合の重いペナルティ全画面ブロック。
  */
 @Composable
 fun HeavyPenaltyOverlay(weeklyTotal: Int, onDismiss: () -> Unit) {
@@ -600,6 +374,9 @@ private fun HomeScreenUnreportedPreview() {
             onIncrementTemp = {},
             onDecrementTemp = {},
             onSaveReport = {},
+            onNavigateToHistory = {},
+            onNavigateToGoalSetting = {},
+            onNavigateToDebug = {}
         )
     }
 }

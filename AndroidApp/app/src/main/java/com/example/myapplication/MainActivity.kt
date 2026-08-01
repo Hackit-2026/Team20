@@ -28,10 +28,20 @@ import androidx.compose.ui.Modifier
 import com.example.myapplication.data.AppRepo
 import com.example.myapplication.notify.Reminder
 import com.example.myapplication.overlay.PenaltyWatcherService
+import com.example.myapplication.ui.DebugScreen
+import com.example.myapplication.ui.GoalSettingScreen
 import com.example.myapplication.ui.HeavyPenaltyOverlay
+import com.example.myapplication.ui.HistoryScreen
 import com.example.myapplication.ui.HomeScreen
 import com.example.myapplication.ui.MainViewModel
 import com.example.myapplication.ui.theme.MyApplicationTheme
+
+enum class ScreenRoute {
+    HOME,
+    HISTORY,
+    GOAL_SETTING,
+    DEBUG
+}
 
 class MainActivity : ComponentActivity() {
 
@@ -57,6 +67,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             MyApplicationTheme {
                 val uiState by viewModel.uiState.collectAsState()
+                var currentRoute by remember { mutableStateOf(ScreenRoute.HOME) }
 
                 LaunchedEffect(overlayGranted, usageAccessGranted) {
                     if (overlayGranted && usageAccessGranted) {
@@ -65,24 +76,52 @@ class MainActivity : ComponentActivity() {
                 }
 
                 Box(modifier = Modifier.fillMaxSize()) {
-                    HomeScreen(
-                        uiState = uiState,
-                        onIncrementTemp = { viewModel.incrementTempCount() },
-                        onDecrementTemp = { viewModel.decrementTempCount() },
-                        onSaveReport = { viewModel.saveReport() },
-                        onResetAll = { viewModel.resetAll() },
-                        onSubmitForDate = { dateStr, count -> viewModel.submitReportForDate(dateStr, count) },
-                        onApplyNextGoal = { difficulty -> viewModel.applyNextGoal(difficulty) },
-                        onInject30DaysDemo = { viewModel.inject30DaysDemoData() },
-                        onSaveNotifyTime = { hour, min ->
-                            viewModel.saveNotifyTime(hour, min)
-                            Reminder.enableDaily(this@MainActivity, hour, min)
-                        },
-                        overlayPermissionGranted = overlayGranted,
-                        usageAccessGranted = usageAccessGranted,
-                        onRequestOverlayPermission = { requestOverlayPermission() },
-                        onRequestUsageAccess = { requestUsageAccess() },
-                    )
+                    when (currentRoute) {
+                        ScreenRoute.HOME -> {
+                            HomeScreen(
+                                uiState = uiState,
+                                onIncrementTemp = { viewModel.incrementTempCount() },
+                                onDecrementTemp = { viewModel.decrementTempCount() },
+                                onSaveReport = { viewModel.saveReport() },
+                                onNavigateToHistory = { currentRoute = ScreenRoute.HISTORY },
+                                onNavigateToGoalSetting = { currentRoute = ScreenRoute.GOAL_SETTING },
+                                onNavigateToDebug = { currentRoute = ScreenRoute.DEBUG },
+                                overlayPermissionGranted = overlayGranted,
+                                usageAccessGranted = usageAccessGranted,
+                                onRequestOverlayPermission = { requestOverlayPermission() },
+                                onRequestUsageAccess = { requestUsageAccess() },
+                            )
+                        }
+                        ScreenRoute.HISTORY -> {
+                            HistoryScreen(
+                                allReports = uiState.allReports,
+                                onBack = { currentRoute = ScreenRoute.HOME }
+                            )
+                        }
+                        ScreenRoute.GOAL_SETTING -> {
+                            GoalSettingScreen(
+                                uiState = uiState,
+                                onApplyNextGoal = { difficulty -> viewModel.applyNextGoal(difficulty) },
+                                onBack = { currentRoute = ScreenRoute.HOME }
+                            )
+                        }
+                        ScreenRoute.DEBUG -> {
+                            DebugScreen(
+                                uiState = uiState,
+                                onSubmitForDate = { dateStr, count -> viewModel.submitReportForDate(dateStr, count) },
+                                onInject30DaysDemo = { viewModel.inject30DaysDemoData() },
+                                onSaveNotifyTime = { hour, min ->
+                                    viewModel.saveNotifyTime(hour, min)
+                                    Reminder.enableDaily(this@MainActivity, hour, min)
+                                },
+                                onResetAll = {
+                                    viewModel.resetAll()
+                                    currentRoute = ScreenRoute.HOME
+                                },
+                                onBack = { currentRoute = ScreenRoute.HOME }
+                            )
+                        }
+                    }
 
                     var showHeavyPenalty by remember {
                         mutableStateOf(uiState.weeklyTotal >= 2)
