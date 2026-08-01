@@ -21,6 +21,9 @@ import com.example.myapplication.ui.theme.MyApplicationTheme
 
 import com.example.myapplication.logic.CharacterStage
 
+import androidx.compose.ui.platform.LocalContext
+import com.example.myapplication.notify.Reminder
+
 @Composable
 fun HomeScreen(
     todayCount: Int,
@@ -30,8 +33,11 @@ fun HomeScreen(
     onDecrement: () -> Unit,
     onNavigateToCalendar: () -> Unit,
     onNavigateToResult: () -> Unit,
+    onResetData: () -> Unit,
+    onInjectDummyData: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
     val stage = remember(todayCount) { CharacterStage.fromCount(todayCount) }
     val line = remember(stage) { stageLines[stage.ordinal].random() }
 
@@ -87,6 +93,25 @@ fun HomeScreen(
                 Text("吸った +1")
             }
         }
+
+        OutlinedButton(
+            onClick = { Reminder.scheduleIn(context, 5) },
+            modifier = Modifier.padding(top = 32.dp)
+        ) {
+            Text("通知テスト (5秒後)")
+        }
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(top = 8.dp)
+        ) {
+            OutlinedButton(onClick = onInjectDummyData) {
+                Text("デモデータ")
+            }
+            OutlinedButton(onClick = onResetData) {
+                Text("リセット")
+            }
+        }
     }
 }
 
@@ -102,6 +127,8 @@ private fun HomeScreenPreview() {
             onDecrement = {},
             onNavigateToCalendar = {},
             onNavigateToResult = {},
+            onResetData = {},
+            onInjectDummyData = {},
         )
     }
 }

@@ -17,20 +17,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.myapplication.ui.theme.MyApplicationTheme
 
-val stageEmoji = listOf("😊", "😮‍💨", "😵", "👹")
-val stageName = listOf("けんこう", "喫煙し始め", "ヘビースモーカー", "ヤニモンスター")
-val stageLines = listOf(
-    listOf("今日も空気がうまい!", "肺がピカピカだよ"),
-    listOf("ちょっとだけ…ちょっとだけだから…", "のどがイガイガするかも"),
-    listOf("ライター…ライターどこ…", "飯より一服なんだよなぁ"),
-    listOf("モクをよこせェェ!!", "換気扇の下がワシの玉座じゃ"),
-)
-val stageBackground = listOf(
-    Color(0xFFFFFFFF),
-    Color(0xFFFFF6D8),
-    Color(0xFFF2E0A8),
-    Color(0xFF3A3A3A),
-)
+import com.example.myapplication.logic.CharacterStage
+
+val stageEmoji = CharacterStage.entries.map { it.emoji }
+val stageName = CharacterStage.entries.map { it.label }
+val stageLines = CharacterStage.entries.map { it.messages }
+val stageBackground = CharacterStage.entries.map { Color(it.colorHex) }
 
 @Composable
 fun CharacterView(stage: Int, modifier: Modifier = Modifier) {

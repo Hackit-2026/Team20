@@ -17,7 +17,9 @@ data class UiState(
     val currentEmoji: String = CharacterStage.STAGE_0.emoji,
     val currentLine: String = "",
     val challengeStats: ChallengeStats? = null,
-    val settings: AppSettings = AppSettings()
+    val settings: AppSettings = AppSettings(),
+    val allCounts: Map<String, Int> = emptyMap(),
+    val isInitialized: Boolean = false
 )
 
 class MainViewModel(private val repo: AppRepo) : ViewModel() {
@@ -34,6 +36,8 @@ class MainViewModel(private val repo: AppRepo) : ViewModel() {
         val stage = CharacterStage.fromCount(todayCount)
         val stats = repo.getChallengeStats()
         val settings = repo.getAppSettings()
+        val allCounts = repo.getAllCounts()
+        val initialized = repo.isInitialized()
 
         _uiState.update {
             it.copy(
@@ -42,7 +46,9 @@ class MainViewModel(private val repo: AppRepo) : ViewModel() {
                 currentEmoji = stage.emoji,
                 currentLine = if (it.currentLine.isEmpty() || it.currentStage != stage) stage.getRandomMessage() else it.currentLine,
                 challengeStats = stats,
-                settings = settings
+                settings = settings,
+                allCounts = allCounts,
+                isInitialized = initialized
             )
         }
     }
