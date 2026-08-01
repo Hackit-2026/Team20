@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
@@ -58,6 +60,7 @@ fun DebugScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+                .verticalScroll(rememberScrollState())
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -110,6 +113,14 @@ fun DebugScreen(
                         Reminder.enableDaily(context, uiState.settings.notifyHour, newMin)
                     }) { Text("-") }
                 }
+            }
+
+            Button(
+                onClick = { viewModel.triggerManualPenalty() },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+            ) {
+                Text("🚨 1日放置ペナルティのテスト実行 (+${uiState.settings.dailyGoal}pt)", color = MaterialTheme.colorScheme.onErrorContainer)
             }
 
             Button(

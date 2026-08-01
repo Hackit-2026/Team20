@@ -110,6 +110,67 @@ class AppRepo(context: Context) {
     
     fun isConfirmedToday(): Boolean = loadData().lastConfirmedDate == getTodayDate()
 
+    /**
+     * 🚨 1日通知放置時の自動ペナルティ加算処理
+     * 1日放置して未入力の場合、ペナルティとして1日の目標本数分 (dailyGoal) が強制自動加算
+     */
+    fun checkAndApplyPenalty() {
+        val data = loadData()
+        if (!data.isInitialized) return
+
+        val today = LocalDate.now()
+        val lastConfirmedStr = data.lastConfirmedDate ?: data.settings.startDate
+        val lastConfirmed = try {
+            LocalDate.parse(lastConfirmedStr, dateFormatter)
+        } catch (e: Exception) {
+            today.minusDays(1)
+        }
+
+        // 前回確認日から昨日までの未確定日数を計算
+        if (lastConfirmed.isBefore(today)) {
+            val missedDays = java.time.temporal.ChronoUnit.DAYS.between(lastConfirmed, today).toInt() - (if (isConfirmedToday()) 0 else 0)
+            
+            if (missedDays > 0) {
+                Log.w("AppRepo", "🚨 Notification ignored! Applying penalty for $missedDays missed day(s).")
+                val newCounts = data.counts.toMutableMap()
+                val goal = data.settings.dailyGoal
+                
+                for (i in 1..missedDays) {
+                    val missedDate = lastConfirmed.plusDays(i.toLong()).format(dateFormatter)
+                    if (missedDate != getTodayDate() && !newCounts.containsKey(missedDate)) {
+                        newCounts[missedDate] = goal // 目標本数分をペナルティとして強制登録
+                    }
+                }
+
+                var totalPoints = 0
+                newCounts.values.forEach { c -> totalPoints += (c - 1) }
+
+                saveData(data.copy(
+                    counts = newCounts,
+                    points = totalPoints.coerceIn(0, StageLogic.MAX_POINTS)
+                ))
+            }
+        }
+    }
+
+    /** 手動テスト用ペナルティ加算 */
+    fun applyManualPenalty() {
+        val data = loadData()
+        val goal = data.settings.dailyGoal
+        val yesterday = LocalDate.now().minusDays(1).format(dateFormatter)
+        
+        val newCounts = data.counts.toMutableMap()
+        newCounts[yesterday] = goal
+
+        var totalPoints = 0
+        newCounts.values.forEach { c -> totalPoints += (c - 1) }
+
+        saveData(data.copy(
+            counts = newCounts,
+            points = totalPoints.coerceIn(0, StageLogic.MAX_POINTS)
+        ))
+    }
+
     fun updateTodayCount(count: Int) {
         val data = loadData()
         val today = getTodayDate()

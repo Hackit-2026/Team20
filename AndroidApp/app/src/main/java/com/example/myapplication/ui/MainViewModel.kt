@@ -49,6 +49,9 @@ class MainViewModel(private val repo: AppRepo) : ViewModel() {
     }
 
     fun refreshState() {
+        // 🚨 自動ペナルティ判定・加算の実行
+        repo.checkAndApplyPenalty()
+
         val settings = repo.getAppSettings()
         val todayCount = repo.getTodayCount()
         val points = repo.getPoints()
@@ -137,6 +140,11 @@ class MainViewModel(private val repo: AppRepo) : ViewModel() {
 
     fun injectDummyData() {
         repo.injectDummyData()
+        refreshState()
+    }
+
+    fun triggerManualPenalty() {
+        repo.applyManualPenalty()
         refreshState()
     }
 
