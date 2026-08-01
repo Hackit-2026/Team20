@@ -19,7 +19,7 @@ SCHEMA_PATH = os.path.join(os.path.dirname(__file__), "schema.sql")
 app = FastAPI(
     title="ヤニモグラ (YANI-GOTCHI) バックエンドサーバー",
     description="SQLite SQL データベース & LM Studio (google/gemma-4-12b-qat) 連携サーバー",
-    version="2.3.0"
+    version="2.4.0"
 )
 
 # CORS設定（すべてのIPからのアクセス許可）
@@ -75,6 +75,7 @@ class Post(BaseModel):
     text: str
     timestamp: str
     comments: List[MemberComment]
+    memberComments: Optional[List[MemberComment]] = None
 
 class CreatePostRequest(BaseModel):
     author: str = "あなた"
@@ -164,7 +165,6 @@ async def fetch_llm_comment(persona: dict, user_text: str) -> str:
     for base_url in LM_STUDIO_BASE_URLS:
         endpoint_url = f"{base_url}/v1/chat/completions"
         
-        # 動的検出モデル、または候補モデル名を順番に試行
         active_model = await get_active_lm_studio_model(base_url)
         models_to_try = [active_model] + MODEL_CANDIDATES if active_model else MODEL_CANDIDATES
 
@@ -238,7 +238,8 @@ def get_all_posts_from_db() -> List[Post]:
                 isNpc=bool(is_npc),
                 text=text,
                 timestamp=timestamp,
-                comments=comments
+                comments=comments,
+                memberComments=comments
             )
         )
     conn.close()
@@ -262,7 +263,7 @@ def save_post_to_db(post: Post):
     
     conn.commit()
     conn.close()
-    logger.info(f"Post {post.postId} saved to SQL Database.")
+    logger.info(f"Post {post.postId} with {len(post.comments)} comments saved to SQL Database.")
 
 # --- エンドポイント ---
 
@@ -283,12 +284,13 @@ def get_feed():
 
 @app.post("/api/posts", response_model=Post)
 async def create_post(req: CreatePostRequest):
-    """つぶやき投稿を受け取りSQL保存 ＆ LM Studio実推論でコメント生成"""
-    logger.info(f"Received post request from user: '{req.text}'")
+    """つぶやき投稿を受け取りSQL保存 ＆ LM Studio実推論でコメント生成して返却"""
+    logger.info(f"📥 Received post request from user: '{req.text}'")
     new_id = f"post_{int(datetime.now().timestamp())}_{random.randint(100, 999)}"
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
     
     comments = await generate_all_comments(req.text)
+    logger.info(f"📤 Generated {len(comments)} comments. Returning to Android app.")
     
     new_post = Post(
         postId=new_id,
@@ -296,7 +298,8 @@ async def create_post(req: CreatePostRequest):
         isNpc=False,
         text=req.text,
         timestamp=now_str,
-        comments=comments
+        comments=comments,
+        memberComments=comments
     )
     
     save_post_to_db(new_post)
@@ -318,7 +321,8 @@ async def generate_npc_bot_post():
         isNpc=True,
         text=text,
         timestamp=now_str,
-        comments=comments
+        comments=comments,
+        memberComments=comments
     )
     
     save_post_to_db(npc_post)

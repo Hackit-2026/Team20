@@ -38,6 +38,14 @@ class MainViewModel(private val repo: AppRepo) : ViewModel() {
 
     init {
         refreshState()
+        syncFeedFromServer()
+    }
+
+    fun syncFeedFromServer() {
+        viewModelScope.launch {
+            val serverFeed = repo.fetchFeedFromServer()
+            _uiState.update { it.copy(feed = serverFeed) }
+        }
     }
 
     fun refreshState() {
@@ -105,6 +113,7 @@ class MainViewModel(private val repo: AppRepo) : ViewModel() {
     fun saveServerUrl(url: String) {
         repo.saveServerUrl(url)
         refreshState()
+        syncFeedFromServer()
     }
 
     /**
@@ -114,7 +123,8 @@ class MainViewModel(private val repo: AppRepo) : ViewModel() {
         viewModelScope.launch {
             _uiState.update { it.copy(isPosting = true) }
             repo.postToTimelineServer(text)
-            _uiState.update { it.copy(isPosting = false) }
+            val updatedFeed = repo.fetchFeedFromServer()
+            _uiState.update { it.copy(isPosting = false, feed = updatedFeed) }
             refreshState()
         }
     }

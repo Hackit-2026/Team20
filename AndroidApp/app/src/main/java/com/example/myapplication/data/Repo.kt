@@ -136,6 +136,42 @@ class AppRepo(context: Context) {
     fun getFeed(): List<TimelinePost> = loadData().feed
 
     /**
+     * 🌐 サーバー (GET /api/feed) から最新のタイムラインとAIコメントを取得
+     */
+    suspend fun fetchFeedFromServer(): List<TimelinePost> = withContext(Dispatchers.IO) {
+        val configuredUrl = getServerUrl().trimEnd('/')
+        val candidateUrls = listOf(
+            "$configuredUrl/api/feed",
+            "http://192.168.25.42:8000/api/feed",
+            "http://10.0.2.2:8000/api/feed",
+            "http://localhost:8000/api/feed"
+        ).distinct()
+
+        for (urlString in candidateUrls) {
+            try {
+                val url = URL(urlString)
+                val conn = url.openConnection() as HttpURLConnection
+                conn.requestMethod = "GET"
+                conn.connectTimeout = 5000
+                conn.readTimeout = 10000
+
+                if (conn.responseCode == 200) {
+                    val responseText = conn.inputStream.bufferedReader().use { it.readText() }
+                    val serverPosts = json.decodeFromString<List<TimelinePost>>(responseText)
+                    if (serverPosts.isNotEmpty()) {
+                        val data = loadData()
+                        saveData(data.copy(feed = serverPosts))
+                        return@withContext serverPosts
+                    }
+                }
+            } catch (e: Exception) {
+                Log.d("AppRepo", "Fetch feed from $urlString failed: ${e.message}")
+            }
+        }
+        return@withContext getFeed()
+    }
+
+    /**
      * 🌐 サーバー (FastAPI + LM Studio) に対して投稿を直接送信
      * エミュレータ用 (10.0.2.2) ＆ 実機・写真用 (192.168.25.42) の両方へ順次接続試行
      */

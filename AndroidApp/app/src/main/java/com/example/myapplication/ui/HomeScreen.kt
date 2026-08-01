@@ -24,6 +24,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -47,12 +48,16 @@ fun HomeScreen(
     val progress = (uiState.points.toFloat() / StageLogic.MAX_POINTS).coerceIn(0f, 1f)
 
     Column(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         // 上部ナビゲーション
         Row(
-            modifier = Modifier.fillMaxWidth().padding(8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row {
@@ -68,29 +73,32 @@ fun HomeScreen(
             }
         }
 
-        // キャラクター表示 (もっと大きく)
+        // キャラクター表示 (高さを少し上に寄せてバランス調整)
         CharacterView(
             stageIndex = stageIndex, 
-            modifier = Modifier.fillMaxWidth().size(350.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .size(220.dp)
         )
 
         Text(
             text = if (uiState.isWithdrawal) "👿 禁断症状中！" else stageName,
-            style = MaterialTheme.typography.headlineLarge,
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
             color = if (uiState.isWithdrawal) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(top = 8.dp),
+            modifier = Modifier.padding(top = 4.dp),
         )
         Text(
             text = "「$line」",
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.padding(top = 4.dp),
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(top = 2.dp),
         )
 
         // ポイントゲージ
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 32.dp, vertical = 12.dp),
+                .padding(horizontal = 24.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
@@ -101,8 +109,8 @@ fun HomeScreen(
                 progress = { progress },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(12.dp)
-                    .padding(top = 8.dp)
+                    .height(10.dp)
+                    .padding(top = 4.dp)
             )
         }
 
@@ -113,7 +121,7 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.medium)
-                .padding(16.dp),
+                .padding(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             if (uiState.isConfirmedToday) {
@@ -121,7 +129,7 @@ fun HomeScreen(
                     "本日の分は確定済みです", 
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(bottom = 8.dp)
+                    modifier = Modifier.padding(bottom = 4.dp)
                 )
                 Text(
                     "今日吸った本数: ${uiState.todayCount}本",
@@ -131,12 +139,12 @@ fun HomeScreen(
                 Text("今日の至福の本数を入力", style = MaterialTheme.typography.labelLarge)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(24.dp),
-                    modifier = Modifier.padding(vertical = 12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(20.dp),
+                    modifier = Modifier.padding(vertical = 8.dp)
                 ) {
-                    OutlinedButton(onClick = onDecrementTemp) { Text("-", fontSize = 24.sp) }
-                    Text("${uiState.tempCount}", style = MaterialTheme.typography.displaySmall)
-                    OutlinedButton(onClick = onIncrementTemp) { Text("+", fontSize = 24.sp) }
+                    OutlinedButton(onClick = onDecrementTemp) { Text("-", fontSize = 20.sp) }
+                    Text("${uiState.tempCount}", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+                    OutlinedButton(onClick = onIncrementTemp) { Text("+", fontSize = 20.sp) }
                 }
                 Button(
                     onClick = onConfirm,
@@ -147,10 +155,13 @@ fun HomeScreen(
             }
         }
 
+        // 残り期間（画面下部に確実に見えるように位置調整）
         Text(
-            text = "残り${uiState.challengeStats?.daysLeft ?: 0}日",
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.padding(top = 8.dp, bottom = 16.dp)
+            text = "⏳ 残り期間: ${uiState.challengeStats?.daysLeft ?: 0}日",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(top = 10.dp, bottom = 24.dp)
         )
     }
 }
