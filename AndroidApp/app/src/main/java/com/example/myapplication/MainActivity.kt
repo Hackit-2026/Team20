@@ -89,6 +89,20 @@ class MainActivity : ComponentActivity() {
                     var showHeavyPenalty by remember {
                         mutableStateOf(uiState.weeklyTotal >= 2)
                     }
+
+                    // 画面ピン留め(Screen Pinning)。通知シェードや最近使ったアプリへ
+                    // 抜け出しにくくするための標準API。root/Device Owner権限は不要だが、
+                    // 「戻る+最近使用したアプリを長押し」で解除する手段はOS側に残るため、
+                    // 完全に脱出不可能にはできない点は限界として了承のうえで使う。
+                    LaunchedEffect(showHeavyPenalty) {
+                        try {
+                            if (showHeavyPenalty) startLockTask() else stopLockTask()
+                        } catch (e: Exception) {
+                            // 端末やOSバージョンによっては使えないことがあるが、
+                            // その場合も警告画面自体は通常どおり表示され続ける
+                        }
+                    }
+
                     if (showHeavyPenalty) {
                         HeavyPenaltyOverlay(
                             weeklyTotal = uiState.weeklyTotal,
