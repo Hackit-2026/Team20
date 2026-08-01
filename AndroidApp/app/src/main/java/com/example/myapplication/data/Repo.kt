@@ -76,7 +76,22 @@ class AppRepo(context: Context) {
 
     fun getAllReports(): Map<String, DailyReport> = loadData().reports
 
+    /** 過去7日間(今日を含む)の合計本数 */
+    fun getWeeklyTotal(): Int {
+        val data = loadData()
+        val today = LocalDate.now(JST)
+        return (0..6).sumOf { offset ->
+            val date = today.minusDays(offset.toLong()).format(dateFormatter)
+            data.reports[date]?.count ?: 0
+        }
+    }
+
     fun isInitialized(): Boolean = loadData().isInitialized
+
+    /** 全データを削除して初期状態に戻す */
+    fun resetAllData() {
+        saveData(AppData())
+    }
 
     private fun getGoalDate(): LocalDate = LocalDate.parse(loadData().streakStartDate).plusMonths(3)
 

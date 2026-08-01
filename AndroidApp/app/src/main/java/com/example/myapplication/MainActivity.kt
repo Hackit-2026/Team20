@@ -16,14 +16,19 @@ import androidx.activity.viewModels
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import com.example.myapplication.data.AppRepo
 import com.example.myapplication.notify.Reminder
 import com.example.myapplication.overlay.PenaltyWatcherService
+import com.example.myapplication.ui.HeavyPenaltyOverlay
 import com.example.myapplication.ui.HomeScreen
 import com.example.myapplication.ui.MainViewModel
 import com.example.myapplication.ui.theme.MyApplicationTheme
@@ -63,16 +68,31 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                HomeScreen(
-                    uiState = uiState,
-                    onIncrementTemp = { viewModel.incrementTempCount() },
-                    onDecrementTemp = { viewModel.decrementTempCount() },
-                    onSaveReport = { viewModel.saveReport() },
-                    overlayPermissionGranted = overlayGranted,
-                    usageAccessGranted = usageAccessGranted,
-                    onRequestOverlayPermission = { requestOverlayPermission() },
-                    onRequestUsageAccess = { requestUsageAccess() },
-                )
+                Box(modifier = Modifier.fillMaxSize()) {
+                    HomeScreen(
+                        uiState = uiState,
+                        onIncrementTemp = { viewModel.incrementTempCount() },
+                        onDecrementTemp = { viewModel.decrementTempCount() },
+                        onSaveReport = { viewModel.saveReport() },
+                        onResetAll = { viewModel.resetAll() },
+                        overlayPermissionGranted = overlayGranted,
+                        usageAccessGranted = usageAccessGranted,
+                        onRequestOverlayPermission = { requestOverlayPermission() },
+                        onRequestUsageAccess = { requestUsageAccess() },
+                    )
+
+                    // 1週間に2本以上吸っている場合、アプリを開くたびに1分間閉じられない
+                    // 重いペナルティ画面を表示する(絶対要件のメッセージ)
+                    var showHeavyPenalty by remember(uiState.weeklyTotal >= 2) {
+                        mutableStateOf(uiState.weeklyTotal >= 2)
+                    }
+                    if (showHeavyPenalty) {
+                        HeavyPenaltyOverlay(
+                            weeklyTotal = uiState.weeklyTotal,
+                            onDismiss = { showHeavyPenalty = false },
+                        )
+                    }
+                }
             }
         }
     }
