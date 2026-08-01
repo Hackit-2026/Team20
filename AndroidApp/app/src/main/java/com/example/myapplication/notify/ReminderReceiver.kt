@@ -9,8 +9,8 @@ class ReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val repo = AppRepo(context)
         
-        // 本日分が既に確定保存済みであれば通知を出さずにスキップ
-        if (repo.isConfirmedToday()) {
+        // 本日分が既に申告済みであれば通知を出さずにスキップ
+        if (repo.isReportedToday()) {
             if (intent.getBooleanExtra("daily", false)) {
                 Reminder.scheduleNext(context)
             }

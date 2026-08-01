@@ -12,9 +12,11 @@ import androidx.activity.viewModels
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import com.example.myapplication.data.AppRepo
 import com.example.myapplication.notify.Reminder
-import com.example.myapplication.ui.AppNavigation
+import com.example.myapplication.ui.HomeScreen
 import com.example.myapplication.ui.MainViewModel
 import com.example.myapplication.ui.theme.MyApplicationTheme
 
@@ -35,10 +37,20 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         Reminder.createChannel(this)
         requestNotificationPermission()
+        // 一日の最後(21:00)に、未申告なら申告を促す通知を送る
+        Reminder.enableDaily(this, hour = 21, minute = 0)
         enableEdgeToEdge()
         setContent {
             MyApplicationTheme {
-                AppNavigation(viewModel)
+                val uiState by viewModel.uiState.collectAsState()
+                HomeScreen(
+                    uiState = uiState,
+                    onChooseSmoked = { viewModel.chooseSmoked() },
+                    onReportNoSmoke = { viewModel.reportNoSmoke() },
+                    onIncrementTemp = { viewModel.incrementTempCount() },
+                    onDecrementTemp = { viewModel.decrementTempCount() },
+                    onConfirmSmokedReport = { viewModel.confirmSmokedReport() },
+                )
             }
         }
     }

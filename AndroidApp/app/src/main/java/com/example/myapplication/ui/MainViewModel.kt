@@ -1,34 +1,18 @@
 package com.example.myapplication.ui
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.example.myapplication.data.AppRepo
-import com.example.myapplication.data.AppSettings
-import com.example.myapplication.data.ChallengeStats
-import com.example.myapplication.data.TimelinePost
-import com.example.myapplication.logic.StageLogic
+import com.example.myapplication.data.DailyReport
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 
 data class UiState(
-    val todayCount: Int = 10,
-    val tempCount: Int = 10,
-    val points: Int = 0,
-    val isConfirmedToday: Boolean = false,
-    val stageIndex: Int = 0,
-    val currentEmoji: String = StageLogic.stageEmojis[0],
-    val stageName: String = StageLogic.stageNames[0],
-    val currentLine: String = "",
-    val challengeStats: ChallengeStats? = null,
-    val settings: AppSettings = AppSettings(),
-    val allCounts: Map<String, Int> = emptyMap(),
-    val feed: List<TimelinePost> = emptyList(),
-    val isInitialized: Boolean = false,
-    val isWithdrawal: Boolean = false,
-    val isPosting: Boolean = false
+    val today: DailyReport = DailyReport(),
+    // 「吸った」を選んでから[申告する]を押すまでの一時入力状態。null = まだ選んでいない
+    val tempSmoked: Boolean? = null,
+    val tempCount: Int = 1,
 )
 
 class MainViewModel(private val repo: AppRepo) : ViewModel() {
@@ -38,54 +22,21 @@ class MainViewModel(private val repo: AppRepo) : ViewModel() {
 
     init {
         refreshState()
-        syncFeedFromServer()
     }
 
-    fun syncFeedFromServer() {
-        viewModelScope.launch {
-            val serverFeed = repo.fetchFeedFromServer()
-            _uiState.update { it.copy(feed = serverFeed) }
-            refreshState()
-        }
+    private fun refreshState() {
+        _uiState.update { UiState(today = repo.getTodayReport()) }
     }
 
-    fun refreshState() {
-        // 🚨 自動ペナルティ判定・加算の実行
-        repo.checkAndApplyPenalty()
+    /** 「吸った」を選択 → 本数ステッパーを表示する */
+    fun chooseSmoked() {
+        _uiState.update { it.copy(tempSmoked = true, tempCount = 1) }
+    }
 
-        val settings = repo.getAppSettings()
-        val todayCount = repo.getTodayCount()
-        val points = repo.getPoints()
-        val stageIndex = StageLogic.getStageIndex(points)
-        val stats = repo.getChallengeStats()
-        val allCounts = repo.getAllCounts()
-        val confirmedToday = repo.isConfirmedToday()
-        val feed = repo.getFeed()
-        
-        val isWithdrawal = todayCount == 0 && confirmedToday
-
-        _uiState.update {
-            it.copy(
-                todayCount = todayCount,
-                tempCount = if (!confirmedToday) settings.dailyGoal else todayCount,
-                points = points,
-                isConfirmedToday = confirmedToday,
-                stageIndex = stageIndex,
-                currentEmoji = StageLogic.stageEmojis[stageIndex],
-                stageName = StageLogic.stageNames[stageIndex],
-                currentLine = if (it.currentLine.isEmpty() || it.stageIndex != stageIndex || it.isWithdrawal != isWithdrawal) {
-                    StageLogic.getRandomMessage(points, isWithdrawal)
-                } else {
-                    it.currentLine
-                },
-                challengeStats = stats,
-                settings = settings,
-                allCounts = allCounts,
-                feed = feed,
-                isInitialized = repo.isInitialized(),
-                isWithdrawal = isWithdrawal
-            )
-        }
+    /** 「吸わなかった」を選択 → その場で確定保存する */
+    fun reportNoSmoke() {
+        repo.submitReport(smoked = false, count = 0)
+        refreshState()
     }
 
     fun incrementTempCount() {
@@ -93,64 +44,13 @@ class MainViewModel(private val repo: AppRepo) : ViewModel() {
     }
 
     fun decrementTempCount() {
-        _uiState.update { it.copy(tempCount = (it.tempCount - 1).coerceAtLeast(0)) }
+        _uiState.update { it.copy(tempCount = (it.tempCount - 1).coerceAtLeast(1)) }
     }
 
-    fun confirmTodayCount() {
-        repo.updateTodayCount(_uiState.value.tempCount)
+    /** 本数を確定して「吸った」申告を保存する */
+    fun confirmSmokedReport() {
+        val count = _uiState.value.tempCount
+        repo.submitReport(smoked = true, count = count)
         refreshState()
-    }
-
-    fun saveSettings(days: Int, goal: Int, notifyHour: Int = 21, notifyMinute: Int = 0) {
-        val currentSettings = repo.getAppSettings()
-        val newSettings = currentSettings.copy(
-            days = days,
-            dailyGoal = goal,
-            notifyHour = notifyHour,
-            notifyMinute = notifyMinute
-        )
-        repo.saveSettings(newSettings)
-        _uiState.update { it.copy(tempCount = goal) }
-        refreshState()
-    }
-
-    fun saveServerUrl(url: String) {
-        repo.saveServerUrl(url)
-        refreshState()
-        syncFeedFromServer()
-    }
-
-    /**
-     * 🌐 投稿受信時: 即座（0.05秒）にサーバーへPOSTしローカルUI反映。
-     * リロードボタンを押すことで、サーバー側で非同期生成されたコメントが読み込まれる。
-     */
-    fun postToTimeline(text: String) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isPosting = true) }
-            repo.postToTimelineServer(text)
-            val updatedFeed = repo.fetchFeedFromServer()
-            _uiState.update { it.copy(isPosting = false, feed = updatedFeed) }
-            refreshState()
-        }
-    }
-
-    fun resetData() {
-        repo.resetAllData()
-        _uiState.update { UiState() }
-        refreshState()
-    }
-
-    fun injectDummyData() {
-        repo.injectDummyData()
-        refreshState()
-    }
-
-    fun triggerManualPenalty() {
-        repo.applyManualPenalty()
-        refreshState()
-    }
-
-    fun simulateSensorTrigger() {
-        _uiState.update { it.copy(currentLine = "（ﾋﾟﾋﾟﾋﾟ!）心拍上昇と酸素低下を検知したぞ！さあ一本いこうぜ！") }
     }
 }
