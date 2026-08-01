@@ -27,8 +27,8 @@ data class AppData(
     val currentGoal: Int = 10,
     val streakStartDate: String = LocalDate.now(ZoneId.of("Asia/Tokyo")).toString(),
     val isInitialized: Boolean = false,
-    val heavyPenaltyLockUntil: Long = 0L, // 🚨 重度ペナルティのロック完了終了タイムスタンプ（ミリ秒）
-    val penaltyDismissedUntil: Long = 0L,  // 🚨 閉じた後に無駄なループ再発火を防ぐフラグ
+    val heavyPenaltyLockUntil: Long = 0L,
+    val penaltyDismissedUntil: Long = 0L,
 )
 
 private val JST: ZoneId = ZoneId.of("Asia/Tokyo")
@@ -59,6 +59,32 @@ class AppRepo(context: Context) {
 
     fun getCurrentGoal(): Int = loadData().currentGoal
 
+    /**
+     * 📊 【新要件】何本吸ったかを入力するところを先週4週間（28日間）の最大値の2/3を初期値にする
+     * 公式: floor( MaxCount * 2 / 3 )
+     */
+    fun getInitialCountForToday(): Int {
+        val data = loadData()
+        val today = LocalDate.now(JST)
+        var maxCount = 0
+
+        for (i in 1..28) {
+            val dateStr = today.minusDays(i.toLong()).format(dateFormatter)
+            val report = data.reports[dateStr]
+            if (report != null && report.smoked) {
+                if (report.count > maxCount) {
+                    maxCount = report.count
+                }
+            }
+        }
+
+        return if (maxCount > 0) {
+            floor(maxCount * 2.0 / 3.0).toInt().coerceAtLeast(0)
+        } else {
+            data.currentGoal
+        }
+    }
+
     fun getNotifyHour(): Int = loadData().notifyHour
 
     fun getNotifyMinute(): Int = loadData().notifyMinute
@@ -68,13 +94,9 @@ class AppRepo(context: Context) {
         saveData(data.copy(notifyHour = hour, notifyMinute = minute))
     }
 
-    /**
-     * 🚨 60秒重度ペナルティのロック時間を永続保存
-     */
     fun triggerHeavyPenaltyLock() {
         val data = loadData()
         val now = System.currentTimeMillis()
-        // 解除済み・クールダウン中でなく、ロック中でない場合のみ60秒をセット
         if (data.heavyPenaltyLockUntil < now && data.penaltyDismissedUntil < now) {
             saveData(data.copy(heavyPenaltyLockUntil = now + 60_000L))
         }
@@ -88,7 +110,6 @@ class AppRepo(context: Context) {
     fun clearHeavyPenaltyLock() {
         val data = loadData()
         val now = System.currentTimeMillis()
-        // 閉じた後は30分間のクールダウン（無制限再発火ループ防止）
         saveData(data.copy(heavyPenaltyLockUntil = 0L, penaltyDismissedUntil = now + 1_800_000L))
     }
 

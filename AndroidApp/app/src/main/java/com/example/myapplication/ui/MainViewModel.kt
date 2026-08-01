@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.update
 data class UiState(
     val today: DailyReport = DailyReport(),
     val tempCount: Int = 10,
+    val initialCount: Int = 10, // 過去4週間の最大値の2/3を算出初期値とする
     val daysUntilGoal: Long = 0,
     val goalAchieved: Boolean = false,
     val weeklyTotal: Int = 0,
@@ -38,10 +39,12 @@ class MainViewModel(private val repo: AppRepo) : ViewModel() {
     fun refreshState() {
         val today = repo.getTodayReport()
         val currentGoal = repo.getCurrentGoal()
+        val initialCount = repo.getInitialCountForToday()
         _uiState.update {
             UiState(
                 today = today,
-                tempCount = if (today.reported) today.count else currentGoal,
+                tempCount = if (today.reported) today.count else initialCount,
+                initialCount = initialCount,
                 daysUntilGoal = repo.daysUntilGoal(),
                 goalAchieved = repo.isGoalAchieved(),
                 weeklyTotal = repo.getWeeklyTotal(),
