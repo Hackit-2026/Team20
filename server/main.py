@@ -18,8 +18,8 @@ SCHEMA_PATH = os.path.join(os.path.dirname(__file__), "schema.sql")
 
 app = FastAPI(
     title="ヤニモグラ (YANI-GOTCHI) バックエンドサーバー",
-    description="SQLite SQL データベース & LM Studio (gemma4-12B qat) 連携サーバー",
-    version="2.2.0"
+    description="SQLite SQL データベース & LM Studio (google/gemma-4-12b-qat) 連携サーバー",
+    version="2.3.0"
 )
 
 # CORS設定（すべてのIPからのアクセス許可）
@@ -31,14 +31,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# LM Studio 接続URLリスト（写真のアドレス 192.168.25.42 を最優先設定）
-LM_STUDIO_URLS = [
-    "http://192.168.25.42:11434/v1/chat/completions",
-    "http://172.0.0.1:11434/v1/chat/completions",
-    "http://127.0.0.1:11434/v1/chat/completions",
-    "http://localhost:11434/v1/chat/completions"
+# LM Studio 接続ホスト先リスト（写真のアドレス 192.168.25.42 を最優先設定）
+LM_STUDIO_BASE_URLS = [
+    "http://192.168.25.42:11434",
+    "http://172.0.0.1:11434",
+    "http://127.0.0.1:11434",
+    "http://localhost:11434"
 ]
-MODEL_NAME = "gemma4-12B qat"
+
+# 候補モデル名（ユーザー指定 google/gemma-4-12b-qat を最優先）
+MODEL_CANDIDATES = [
+    "google/gemma-4-12b-qat",
+    "gemma-4-12b-qat",
+    "gemma4-12B qat"
+]
 
 # --- SQLite データベース初期化関数 ---
 def init_db():
@@ -132,32 +138,63 @@ NPC_POST_TEMPLATES = [
     "仕事の合間の1本をグッと堪えてお茶飲んだ！"
 ]
 
+async def get_active_lm_studio_model(base_url: str) -> Optional[str]:
+    """LM Studio の /v1/models からアクティブにロードされているモデルIDを自動取得"""
+    models_url = f"{base_url}/v1/models"
+    try:
+        async with httpx.AsyncClient(timeout=4.0) as client:
+            res = await client.get(models_url)
+            if res.status_code == 200:
+                data = res.json()
+                if "data" in data and len(data["data"]) > 0:
+                    model_id = data["data"][0]["id"]
+                    logger.info(f"Detected active LM Studio model '{model_id}' from {base_url}")
+                    return model_id
+    except Exception as e:
+        logger.debug(f"Failed to fetch models from {models_url}: {e}")
+    return None
+
 async def fetch_llm_comment(persona: dict, user_text: str) -> str:
-    """LM Studio へ実リクエストを送信（優先IP: 192.168.25.42:11434）してコメント生成"""
-    payload = {
-        "model": MODEL_NAME,
-        "messages": [
-            {"role": "system", "content": persona["system_prompt"]},
-            {"role": "user", "content": f"つぶやき内容：「{user_text}」\n上記のつぶやきに対して、あなたのキャラクターとして1〜2文で返信コメントしてください。"}
-        ],
-        "temperature": 0.7,
-        "max_tokens": 100
-    }
+    """LM Studio へ実リクエストを送信（優先IP: 192.168.25.42:11434, モデル: google/gemma-4-12b-qat）"""
+    messages = [
+        {"role": "system", "content": persona["system_prompt"]},
+        {"role": "user", "content": f"つぶやき内容：「{user_text}」\n上記のつぶやきに対して、あなたのキャラクターとして1〜2文で返信コメントしてください。"}
+    ]
 
-    for url in LM_STUDIO_URLS:
-        try:
-            async with httpx.AsyncClient(timeout=8.0) as client:
-                logger.info(f"Trying to connect to LM Studio at {url}...")
-                response = await client.post(url, json=payload)
-                if response.status_code == 200:
-                    data = response.json()
-                    content = data["choices"][0]["message"]["content"].strip()
-                    content = content.replace("AI", "").replace("人工知能", "").strip()
-                    logger.info(f"Successfully generated comment via {url}")
-                    return content
-        except Exception as e:
-            logger.debug(f"Connection to {url} failed: {e}")
+    for base_url in LM_STUDIO_BASE_URLS:
+        endpoint_url = f"{base_url}/v1/chat/completions"
+        
+        # 動的検出モデル、または候補モデル名を順番に試行
+        active_model = await get_active_lm_studio_model(base_url)
+        models_to_try = [active_model] + MODEL_CANDIDATES if active_model else MODEL_CANDIDATES
 
+        for model_name in models_to_try:
+            if not model_name:
+                continue
+            payload = {
+                "model": model_name,
+                "messages": messages,
+                "temperature": 0.7,
+                "max_tokens": 100
+            }
+
+            try:
+                async with httpx.AsyncClient(timeout=15.0) as client:
+                    logger.info(f"Sending request to LM Studio ({endpoint_url}) with model '{model_name}' for persona '{persona['name']}'...")
+                    response = await client.post(endpoint_url, json=payload)
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        content = data["choices"][0]["message"]["content"].strip()
+                        content = content.replace("AI", "").replace("人工知能", "").strip()
+                        logger.info(f"✅ Successfully generated comment via LM Studio ({model_name}): {content}")
+                        return content
+                    else:
+                        logger.warning(f"LM Studio returned status {response.status_code}: {response.text}")
+            except Exception as e:
+                logger.warning(f"Connection to LM Studio ({endpoint_url}) with model '{model_name}' failed: {e}")
+
+    logger.warning("All LM Studio connection attempts failed. Using persona fallback template.")
     await asyncio.sleep(random.uniform(0.5, 1.2))
     return random.choice(persona["fallback_templates"])
 
@@ -236,7 +273,7 @@ def read_root():
         "server": "ヤニモグラ Python Backend Server",
         "primary_ip": "192.168.25.42:8000",
         "lm_studio_target": "http://192.168.25.42:11434/v1/chat/completions",
-        "model": MODEL_NAME
+        "target_model": "google/gemma-4-12b-qat"
     }
 
 @app.get("/api/feed", response_model=List[Post])
@@ -247,6 +284,7 @@ def get_feed():
 @app.post("/api/posts", response_model=Post)
 async def create_post(req: CreatePostRequest):
     """つぶやき投稿を受け取りSQL保存 ＆ LM Studio実推論でコメント生成"""
+    logger.info(f"Received post request from user: '{req.text}'")
     new_id = f"post_{int(datetime.now().timestamp())}_{random.randint(100, 999)}"
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
     
