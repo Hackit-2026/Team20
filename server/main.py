@@ -258,3 +258,7 @@ async def create_post(req: CreatePostRequest, background_tasks: BackgroundTasks)
     )
     
     return new_post
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
