@@ -19,6 +19,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.myapplication.ui.theme.MyApplicationTheme
 
+import com.example.myapplication.logic.CharacterStage
+
 @Composable
 fun HomeScreen(
     todayCount: Int,
@@ -26,19 +28,35 @@ fun HomeScreen(
     remainingDays: Int,
     onIncrement: () -> Unit,
     onDecrement: () -> Unit,
+    onNavigateToCalendar: () -> Unit,
+    onNavigateToResult: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val stage = remember(todayCount) { stageOf(todayCount) }
-    val line = remember(stage) { stageLines[stage].random() }
+    val stage = remember(todayCount) { CharacterStage.fromCount(todayCount) }
+    val line = remember(stage) { stageLines[stage.ordinal].random() }
 
     Column(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize().padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        CharacterView(stage = stage, modifier = Modifier.fillMaxWidth())
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            OutlinedButton(onClick = onNavigateToCalendar) {
+                Text("カレンダー")
+            }
+            if (remainingDays <= 0) {
+                Button(onClick = onNavigateToResult) {
+                    Text("結果を見る")
+                }
+            }
+        }
+
+        CharacterView(stage = stage.ordinal, modifier = Modifier.fillMaxWidth().padding(top = 16.dp))
 
         Text(
-            text = stageName[stage],
+            text = stage.label,
             style = MaterialTheme.typography.titleMedium,
             modifier = Modifier.padding(top = 16.dp),
         )
@@ -72,16 +90,6 @@ fun HomeScreen(
     }
 }
 
-/**
- * RequirementsDefinition.md の閾値。logic/Stage.kt(A担当)が用意され次第、そちらに置き換える。
- */
-private fun stageOf(count: Int): Int = when {
-    count >= 10 -> 3
-    count >= 5 -> 2
-    count >= 2 -> 1
-    else -> 0
-}
-
 @Preview(showBackground = true)
 @Composable
 private fun HomeScreenPreview() {
@@ -92,6 +100,8 @@ private fun HomeScreenPreview() {
             remainingDays = 4,
             onIncrement = {},
             onDecrement = {},
+            onNavigateToCalendar = {},
+            onNavigateToResult = {},
         )
     }
 }
