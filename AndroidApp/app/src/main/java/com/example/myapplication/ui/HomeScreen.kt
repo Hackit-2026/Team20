@@ -22,7 +22,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -61,7 +60,6 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
 ) {
     val stageIndex = StageLogic.getStageIndex(uiState.points)
-    val stageName = StageLogic.stageNames[stageIndex]
     val progress = (uiState.points.toFloat() / StageLogic.MAX_POINTS).coerceIn(0f, 1f)
     val daysLeft = uiState.challengeStats?.daysLeft ?: 0
     // 端末のタイムゾーンに関わらず、常に日本時間の日付を表示する
@@ -102,19 +100,13 @@ fun HomeScreen(
             modifier = Modifier.padding(top = 4.dp),
         )
 
-        // 現在のステージ名(禁断症状中はそれを優先表示)
+        // 項目名(今後の複数項目対応の置き場所。現状は禁煙のみ)
         Text(
-            text = if (uiState.isWithdrawal) "👿 禁断症状中" else stageName,
-            color = if (uiState.isWithdrawal) MaterialTheme.colorScheme.error else Muted,
+            text = "禁煙",
+            color = Muted,
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(top = 8.dp),
-        )
-        Text(
-            text = "「${uiState.currentLine}」",
-            color = MutedSoft,
-            fontSize = 12.sp,
-            modifier = Modifier.padding(top = 2.dp),
         )
 
         // 残り日数を画面の主役として中央に大きく
