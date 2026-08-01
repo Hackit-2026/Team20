@@ -6,9 +6,10 @@
 ---
 
 ## 🎯 アプリ概要
-- **アプリ名**: **ヤニモグラ (YANI-GOTCHI)**
+- **アプリ名**: **YANI-GOTCHI / ヤニモグラ**
 - **アーキテクチャ**: Android Jetpack Compose + MVVM (ViewModel, Repository)
-- **バックエンド通信**: Python (FastAPI + LM Studio `gemma4-12B qat`) サーバー API (`http://10.0.2.2:8000/api/`)
+- **バックエンド通信**: Python (FastAPI + LM Studio `gemma4-12B qat`) サーバー API
+  - **優先サーバーIP**: `http://192.168.25.42:8000/api/` （環境に応じて `http://10.0.2.2:8000/api/` へ切替対応可能に実装）
 
 ---
 
@@ -34,7 +35,7 @@
 - スマートウォッチ模擬テストボタン（実機なしをカバー）。
 
 ### 4. コミュニティタイムライン画面 (`ui/CommunityFeedScreen.kt`)
-- Pythonサーバー (`GET http://10.0.2.2:8000/api/feed`) からタイムライン投稿を取得。
+- Pythonサーバー (`http://192.168.25.42:8000/api/feed`) からタイムライン投稿を取得。
 - 4人の専属メンバー（熱血仲間・修造🔥、ツンデレ友達・アスカ😳、Dr.ヘルス👨‍⚕️、ヤニモグラ👹）からのリアルタイム応答コメントを表示。
 - **画面上やセリフに「AI」という文字は一切含めないこと**。
 
@@ -46,11 +47,12 @@
 あなたはAndroid（Kotlin / Jetpack Compose）のプロフェッショナルです。
 上記の「Android開発AI専用 指示書」に従い、以下の修正を行ってください。
 
-1. Repo.kt: リセット時の dailyGoal 初期値を 10本 に設定する。
-2. MainViewModel.kt & HomeScreen.kt: メイン画面の本日の本数の初期値を「目標本数 (10本)」にし、ボタンで下げる方向へ調整できるUIにする。
-3. HomeScreen.kt: 左上に「履歴ボタン」、右上に「デバッグボタン」を配置し、画像を大きくする。「AI」の文字は画面から排除する。
-4. DebugScreen.kt: デバッグ画面内部に ResultScreen.kt (リザルト画面) へのアクセスボタンを設置する。
-5. CommunityFeedScreen.kt: 4人の仲間メンバー（修造・アスカ・Dr.ヘルス・ヤニモグラ）からのリアルタイムコメントを表示する。
+1. APIクライアント: ベースURLを http://192.168.25.42:8000/api/ または 10.0.2.2 に設定する。
+2. Repo.kt: リセット時の dailyGoal 初期値を 10本 に設定する。
+3. MainViewModel.kt & HomeScreen.kt: メイン画面の本日の本数の初期値を「目標本数 (10本)」にし、ボタンで下げる方向へ調整できるUIにする。
+4. HomeScreen.kt: 左上に「履歴ボタン」、右上に「デバッグボタン」を配置し、画像を大きくする。「AI」の文字は画面から排除する。
+5. DebugScreen.kt: デバッグ画面内部に ResultScreen.kt (リザルト画面) へのアクセスボタンを設置する。
+6. CommunityFeedScreen.kt: 4人の仲間メンバー（修造・アスカ・Dr.ヘルス・ヤニモグラ）からのリアルタイムコメントを表示する。
 
 コンパイル可能なエラーのないKotlinコードを作成してください。
 ```

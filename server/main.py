@@ -18,11 +18,11 @@ SCHEMA_PATH = os.path.join(os.path.dirname(__file__), "schema.sql")
 
 app = FastAPI(
     title="ヤニモグラ (YANI-GOTCHI) バックエンドサーバー",
-    description="SQLデータベース(SQLite)永続化 & LM Studio(gemma4-12B qat) 連携サーバー",
-    version="2.1.0"
+    description="SQLite SQL データベース & LM Studio (gemma4-12B qat) 連携サーバー",
+    version="2.2.0"
 )
 
-# CORS設定（Androidエミュレータ / 実機からの接続許可）
+# CORS設定（すべてのIPからのアクセス許可）
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -31,8 +31,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# LM Studio 接続設定
+# LM Studio 接続URLリスト（写真のアドレス 192.168.25.42 を最優先設定）
 LM_STUDIO_URLS = [
+    "http://192.168.25.42:11434/v1/chat/completions",
     "http://172.0.0.1:11434/v1/chat/completions",
     "http://127.0.0.1:11434/v1/chat/completions",
     "http://localhost:11434/v1/chat/completions"
@@ -132,7 +133,7 @@ NPC_POST_TEMPLATES = [
 ]
 
 async def fetch_llm_comment(persona: dict, user_text: str) -> str:
-    """LM Studio へ実リクエストを送信してコメント生成"""
+    """LM Studio へ実リクエストを送信（優先IP: 192.168.25.42:11434）してコメント生成"""
     payload = {
         "model": MODEL_NAME,
         "messages": [
@@ -146,14 +147,16 @@ async def fetch_llm_comment(persona: dict, user_text: str) -> str:
     for url in LM_STUDIO_URLS:
         try:
             async with httpx.AsyncClient(timeout=8.0) as client:
+                logger.info(f"Trying to connect to LM Studio at {url}...")
                 response = await client.post(url, json=payload)
                 if response.status_code == 200:
                     data = response.json()
                     content = data["choices"][0]["message"]["content"].strip()
                     content = content.replace("AI", "").replace("人工知能", "").strip()
+                    logger.info(f"Successfully generated comment via {url}")
                     return content
         except Exception as e:
-            pass
+            logger.debug(f"Connection to {url} failed: {e}")
 
     await asyncio.sleep(random.uniform(0.5, 1.2))
     return random.choice(persona["fallback_templates"])
@@ -177,7 +180,7 @@ async def generate_all_comments(user_text: str) -> List[MemberComment]:
 # --- SQL DB 操作関数 ---
 
 def get_all_posts_from_db() -> List[Post]:
-    """SQLデータベースからすべての投稿とコメントを時系列降順で取得"""
+    """SQLデータベースからすべての投稿とコメントを取得"""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
@@ -230,9 +233,10 @@ def save_post_to_db(post: Post):
 def read_root():
     return {
         "status": "online",
-        "server": "ヤニモグラ SQL Database Server (SQLite + LM Studio)",
-        "db_location": DB_PATH,
-        "lm_studio_model": MODEL_NAME
+        "server": "ヤニモグラ Python Backend Server",
+        "primary_ip": "192.168.25.42:8000",
+        "lm_studio_target": "http://192.168.25.42:11434/v1/chat/completions",
+        "model": MODEL_NAME
     }
 
 @app.get("/api/feed", response_model=List[Post])
@@ -242,7 +246,7 @@ def get_feed():
 
 @app.post("/api/posts", response_model=Post)
 async def create_post(req: CreatePostRequest):
-    """ユーザーのつぶやき投稿をSQLデータベースへ永続保存 ＆ メンバーコメント生成"""
+    """つぶやき投稿を受け取りSQL保存 ＆ LM Studio実推論でコメント生成"""
     new_id = f"post_{int(datetime.now().timestamp())}_{random.randint(100, 999)}"
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
     
@@ -262,7 +266,7 @@ async def create_post(req: CreatePostRequest):
 
 @app.post("/api/cron/bot-post", response_model=Post)
 async def generate_npc_bot_post():
-    """コミュニティメンバー（NPC）からの定期投稿を生成しSQLデータベースへ永続保存"""
+    """NPCからの定期投稿を生成しSQLデータベースへ永続保存"""
     author = random.choice(NPC_USERS)
     text = random.choice(NPC_POST_TEMPLATES)
     new_id = f"post_npc_{int(datetime.now().timestamp())}_{random.randint(100, 999)}"
@@ -284,4 +288,5 @@ async def generate_npc_bot_post():
 
 if __name__ == "__main__":
     import uvicorn
+    # 0.0.0.0 でホストすることにより 192.168.25.42 や localhost からアクセス可能
     uvicorn.run(app, host="0.0.0.0", port=8000)
