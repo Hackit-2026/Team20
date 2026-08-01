@@ -55,6 +55,7 @@ fun HomeScreen(
     val today = remember {
         LocalDate.now(ZoneId.of("Asia/Tokyo")).format(DateTimeFormatter.ofPattern("M/d"))
     }
+    val report = uiState.today
 
     Column(
         modifier = modifier
@@ -82,25 +83,46 @@ fun HomeScreen(
             modifier = Modifier.padding(top = 8.dp),
         )
 
-        val report = uiState.today
-        when {
-            !report.reported -> UnreportedSection(
-                tempSmoked = uiState.tempSmoked,
-                tempCount = uiState.tempCount,
-                onChooseSmoked = onChooseSmoked,
-                onReportNoSmoke = onReportNoSmoke,
-                onIncrementTemp = onIncrementTemp,
-                onDecrementTemp = onDecrementTemp,
-                onConfirmSmokedReport = onConfirmSmokedReport,
-            )
-            report.smoked -> PenaltySection(report)
-            else -> SuccessSection()
-        }
+        // 本日の申告状況(あくまで小さいステータス表示。ペナルティの警告自体は
+        // 通知側=アプリの外に出すので、ここは画面を占領しない)
+        StatusLine(report)
+
+        // 申告UIは申告済みかどうかに関わらず常にここから操作できる(再申告も可能)
+        ReportSection(
+            tempSmoked = uiState.tempSmoked,
+            tempCount = uiState.tempCount,
+            onChooseSmoked = onChooseSmoked,
+            onReportNoSmoke = onReportNoSmoke,
+            onIncrementTemp = onIncrementTemp,
+            onDecrementTemp = onDecrementTemp,
+            onConfirmSmokedReport = onConfirmSmokedReport,
+        )
     }
 }
 
 @Composable
-private fun UnreportedSection(
+private fun StatusLine(report: DailyReport) {
+    val text = when {
+        !report.reported -> "本日の申告: まだです"
+        report.smoked -> "本日の申告: 吸った(${report.count}本) ・ ペナルティ中"
+        else -> "本日の申告: 吸わなかった"
+    }
+    val color = when {
+        !report.reported -> MutedSoft
+        report.smoked -> Warn
+        else -> Accent
+    }
+    Text(
+        text = text,
+        color = color,
+        fontSize = 12.sp,
+        fontWeight = FontWeight.Bold,
+        modifier = Modifier.padding(top = 12.dp),
+    )
+}
+
+@Composable
+private fun ReportSection(
     tempSmoked: Boolean?,
     tempCount: Int,
     onChooseSmoked: () -> Unit,
@@ -115,7 +137,7 @@ private fun UnreportedSection(
         fontSize = 22.sp,
         fontWeight = FontWeight.Bold,
         textAlign = TextAlign.Center,
-        modifier = Modifier.padding(top = 48.dp),
+        modifier = Modifier.padding(top = 40.dp),
     )
 
     if (tempSmoked != true) {
@@ -186,47 +208,6 @@ private fun UnreportedSection(
             Text("申告する")
         }
     }
-}
-
-@Composable
-private fun PenaltySection(report: DailyReport) {
-    Text(
-        text = "⚠ ペナルティ中",
-        color = Warn,
-        fontSize = 24.sp,
-        fontWeight = FontWeight.Bold,
-        modifier = Modifier.padding(top = 56.dp),
-    )
-    Text(
-        text = "今日は吸ったと申告されています",
-        color = Ink,
-        fontSize = 15.sp,
-        textAlign = TextAlign.Center,
-        modifier = Modifier.padding(top = 12.dp),
-    )
-    Text(
-        text = "本日: ${report.count}本",
-        color = Muted,
-        fontSize = 13.sp,
-        modifier = Modifier.padding(top = 4.dp),
-    )
-}
-
-@Composable
-private fun SuccessSection() {
-    Text(
-        text = "今日は吸っていません",
-        color = Accent,
-        fontSize = 22.sp,
-        fontWeight = FontWeight.Bold,
-        modifier = Modifier.padding(top = 56.dp),
-    )
-    Text(
-        text = "本日の申告は完了しています",
-        color = Muted,
-        fontSize = 13.sp,
-        modifier = Modifier.padding(top = 8.dp),
-    )
 }
 
 @Preview(showBackground = true)

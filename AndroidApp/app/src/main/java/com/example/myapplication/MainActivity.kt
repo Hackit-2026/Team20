@@ -12,8 +12,10 @@ import androidx.activity.viewModels
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalContext
 import com.example.myapplication.data.AppRepo
 import com.example.myapplication.notify.Reminder
 import com.example.myapplication.ui.HomeScreen
@@ -43,6 +45,18 @@ class MainActivity : ComponentActivity() {
         setContent {
             MyApplicationTheme {
                 val uiState by viewModel.uiState.collectAsState()
+                val context = LocalContext.current
+
+                // ペナルティはアプリ画面ではなく通知(アプリの外)で表示する。
+                // 申告状態が変わるたび(=アプリを開いた/申告し直した)に同期する。
+                LaunchedEffect(uiState.today) {
+                    if (uiState.today.reported && uiState.today.smoked) {
+                        Reminder.showPenalty(context, uiState.today.count)
+                    } else {
+                        Reminder.clearPenalty(context)
+                    }
+                }
+
                 HomeScreen(
                     uiState = uiState,
                     onChooseSmoked = { viewModel.chooseSmoked() },
