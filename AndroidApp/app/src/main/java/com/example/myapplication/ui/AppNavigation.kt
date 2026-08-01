@@ -4,28 +4,50 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.NavHost
+import com.example.myapplication.notify.Reminder
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 
 @Composable
 fun AppNavigation(viewModel: MainViewModel) {
     val navController = rememberNavController()
+    val uiState by viewModel.uiState.collectAsState()
 
-    NavHost(navController = navController, startDestination = "home") {
+    // 設定が未完了の場合はオンボーディングから開始
+    val startDestination = if (uiState.isInitialized) "home" else "onboarding"
+
+    NavHost(navController = navController, startDestination = startDestination) {
         composable("onboarding") {
-            OnboardingScreen(viewModel) {
-                navController.navigate("home") {
-                    popUpTo("onboarding") { inclusive = true }
+            val context = LocalContext.current
+            OnboardingScreen(
+                onStart = { days, dailyGoal ->
+                    viewModel.saveSettings(days, dailyGoal, uiState.settings.notifyHour)
+                    // 通知を有効化
+                    Reminder.enableDaily(context, uiState.settings.notifyHour, 0)
+                    navController.navigate("home") {
+                        popUpTo("onboarding") { inclusive = true }
+                    }
                 }
-            }
+            )
         }
         composable("home") {
-            HomeScreen(viewModel, 
+            val stats = uiState.challengeStats
+            HomeScreen(
+                todayCount = uiState.todayCount,
+                dailyGoal = uiState.settings.dailyGoal,
+                remainingDays = stats?.daysLeft ?: uiState.settings.days,
+                onIncrement = { viewModel.incrementCount() },
+                onDecrement = { viewModel.decrementCount() },
                 onNavigateToCalendar = { navController.navigate("calendar") },
-                onNavigateToResult = { navController.navigate("result") }
+                onNavigateToResult = { navController.navigate("result") },
+                onResetData = { viewModel.resetData() },
+                onInjectDummyData = { viewModel.injectDummyData() }
             )
         }
         composable("calendar") {
@@ -34,40 +56,17 @@ fun AppNavigation(viewModel: MainViewModel) {
             }
         }
         composable("result") {
-            ResultScreen(viewModel) {
-                navController.navigate("home") {
-                    popUpTo("home") { inclusive = true }
+            val stats = uiState.challengeStats
+            ResultScreen(
+                targetTotal = stats?.targetTotal ?: 0,
+                actualTotal = stats?.totalCount ?: 0,
+                averagePerDay = (stats?.averageDaily ?: 0f).toDouble(),
+                onRetry = {
+                    navController.navigate("onboarding") {
+                        popUpTo("home") { inclusive = true }
+                    }
                 }
-            }
+            )
         }
-    }
-}
-
-// Placeholder Screens for Member B to implement UI
-@Composable
-fun OnboardingScreen(viewModel: MainViewModel, onFinish: () -> Unit) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text("Onboarding Screen (Member B)")
-    }
-}
-
-@Composable
-fun HomeScreen(viewModel: MainViewModel, onNavigateToCalendar: () -> Unit, onNavigateToResult: () -> Unit) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text("Home Screen (Member B)")
-    }
-}
-
-@Composable
-fun CalendarScreen(viewModel: MainViewModel, onBack: () -> Unit) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text("Calendar Screen (Member B)")
-    }
-}
-
-@Composable
-fun ResultScreen(viewModel: MainViewModel, onRestart: () -> Unit) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text("Result Screen (Member B)")
     }
 }

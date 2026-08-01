@@ -20,7 +20,8 @@ data class AppSettings(
 @Serializable
 data class AppData(
     val settings: AppSettings = AppSettings(),
-    val counts: Map<String, Int> = emptyMap()
+    val counts: Map<String, Int> = emptyMap(),
+    val isInitialized: Boolean = false
 )
 
 class AppRepo(context: Context) {
@@ -50,8 +51,10 @@ class AppRepo(context: Context) {
 
     fun saveSettings(settings: AppSettings) {
         val data = loadData()
-        saveData(data.copy(settings = settings))
+        saveData(data.copy(settings = settings, isInitialized = true))
     }
+
+    fun isInitialized(): Boolean = loadData().isInitialized
 
     fun getCount(date: String): Int = loadData().counts[date] ?: 0
 
@@ -92,6 +95,21 @@ class AppRepo(context: Context) {
             isTargetAchieved = isTargetAchieved,
             targetTotal = targetTotal
         )
+    }
+
+    fun resetAllData() {
+        saveData(AppData())
+    }
+
+    fun addDummyData() {
+        val data = loadData()
+        val today = LocalDate.now()
+        val newCounts = data.counts.toMutableMap()
+        for (i in 1..3) {
+            val date = today.minusDays(i.toLong()).format(dateFormatter)
+            newCounts[date] = (2..12).random()
+        }
+        saveData(data.copy(counts = newCounts))
     }
 }
 
