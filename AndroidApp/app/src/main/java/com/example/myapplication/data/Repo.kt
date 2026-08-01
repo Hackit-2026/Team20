@@ -24,7 +24,7 @@ data class AppData(
     val reports: Map<String, DailyReport> = emptyMap(),
     val notifyHour: Int = 21,
     val notifyMinute: Int = 0,
-    val currentGoal: Int = 10, // 現在の1日あたり目標本数（初期値10本）
+    val currentGoal: Int = 10,
     val streakStartDate: String = LocalDate.now(ZoneId.of("Asia/Tokyo")).toString(),
     val isInitialized: Boolean = false,
 )
@@ -66,9 +66,6 @@ class AppRepo(context: Context) {
         saveData(data.copy(notifyHour = hour, notifyMinute = minute))
     }
 
-    /**
-     * 申告を保存する。
-     */
     fun submitReport(smoked: Boolean, count: Int) {
         val data = loadData()
         val today = getTodayDate()
@@ -83,9 +80,6 @@ class AppRepo(context: Context) {
         saveData(data.copy(reports = newReports, streakStartDate = newStreakStart, isInitialized = true))
     }
 
-    /**
-     * 🛠️ デバッグ機能: 何月何日 (YYYY-MM-DD) を指定してタバコのデータを入れる
-     */
     fun submitReportForDate(dateStr: String, smoked: Boolean, count: Int) {
         val data = loadData()
         val newReports = data.reports.toMutableMap().apply {
@@ -96,7 +90,6 @@ class AppRepo(context: Context) {
 
     fun getAllReports(): Map<String, DailyReport> = loadData().reports
 
-    /** 過去7日間(今日を含む)の合計本数 */
     fun getWeeklyTotal(): Int {
         val data = loadData()
         val today = LocalDate.now(JST)
@@ -106,15 +99,28 @@ class AppRepo(context: Context) {
         }
     }
 
-    /** 過去7日間の1日あたり単純平均本数 */
     fun getWeeklyDailyAverage(): Double {
         return getWeeklyTotal() / 7.0
     }
 
     /**
-     * ⚖️ 先日から1週間前までのタバコの吸った量の重みづけ (Weighted Average)
-     * 昨日=1.0, 2日前=0.85, 3日前=0.7, 4日前=0.55, 5日前=0.4, 6日前=0.25, 7日前=0.1
+     * 🚨 【新ペナルティ計算公式】
+     * PenaltyValue = (前日 * 2.0) + (2日前 * 1.5) + (3日前 * 1.2) + (4日前 * 1.0) + (5日前 * 0.8) + (6日前 * 0.5)
      */
+    fun calculateWeightedPenaltyValue(): Double {
+        val data = loadData()
+        val today = LocalDate.now(JST)
+        val weights = listOf(2.0, 1.5, 1.2, 1.0, 0.8, 0.5)
+        var totalPenalty = 0.0
+
+        for (i in 0 until 6) {
+            val date = today.minusDays((i + 1).toLong()).format(dateFormatter)
+            val count = data.reports[date]?.count ?: 0
+            totalPenalty += count * weights[i]
+        }
+        return totalPenalty
+    }
+
     fun calculateWeightedAverage(): Double {
         val data = loadData()
         val today = LocalDate.now(JST)
@@ -133,17 +139,19 @@ class AppRepo(context: Context) {
     }
 
     /**
-     * 🎯 目標を少しずつ減らす計算
-     * 計算式: 次の目標 = floor(今週の1日あたり平均吸った本数 - ユーザーが決めたきつさの値)
-     * ※ 今回の目標が 0 であれば 0 で出力する。
+     * 🎯 【新・目標引き下げ計算公式】
+     * 次の目標 = floor(今週の1日あたり平均吸った本数 / ユーザーが決めたきつさの値)
+     * きつさの値の範囲: 1.2 ～ 20.0
+     * ※ 今回の目標が 0 であれば無条件で 0 を出力。
      */
     fun calculateNextGoal(difficulty: Double): Int {
         val data = loadData()
         val currentGoal = data.currentGoal
-        if (currentGoal <= 0) return 0 // 今回の目標が0であれば0で出力
+        if (currentGoal <= 0) return 0
 
+        val safeDifficulty = difficulty.coerceIn(1.2, 20.0)
         val weeklyAvg = getWeeklyDailyAverage()
-        val nextGoalCalc = floor(weeklyAvg - difficulty).toInt()
+        val nextGoalCalc = floor(weeklyAvg / safeDifficulty).toInt()
         return nextGoalCalc.coerceIn(0, currentGoal)
     }
 
@@ -153,9 +161,6 @@ class AppRepo(context: Context) {
         saveData(data.copy(currentGoal = nextGoal))
     }
 
-    /**
-     * 📊 デバッグ用: 過去30日間のデモデータを一括自動挿入
-     */
     fun inject30DaysDemoData() {
         val data = loadData()
         val today = LocalDate.now(JST)
@@ -163,7 +168,7 @@ class AppRepo(context: Context) {
 
         for (i in 1..30) {
             val dateStr = today.minusDays(i.toLong()).format(dateFormatter)
-            val smoked = (0..100).random() > 30 // 70%の確率で吸った
+            val smoked = (0..100).random() > 30
             val count = if (smoked) (1..15).random() else 0
             newReports[dateStr] = DailyReport(reported = true, smoked = smoked, count = count)
         }
@@ -173,7 +178,6 @@ class AppRepo(context: Context) {
 
     fun isInitialized(): Boolean = loadData().isInitialized
 
-    /** 全データをリセットし始めからスタートする機能 */
     fun resetAllData() {
         saveData(AppData())
     }

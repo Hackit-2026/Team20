@@ -24,8 +24,8 @@ fun GoalSettingScreen(
     onApplyNextGoal: (Double) -> Unit,
     onBack: () -> Unit
 ) {
-    // 🎯 目標/きつさの値を 0.2 ～ 20.0 の範囲で選択可能に！ (初期値 1.0)
-    var difficulty by remember { mutableDoubleStateOf(1.0) }
+    // 🎯 きつさの値を 1.2 ～ 20.0 の範囲で選択 (初期値 1.5)
+    var difficulty by remember { mutableDoubleStateOf(1.5) }
 
     Scaffold(
         topBar = {
@@ -124,7 +124,7 @@ fun GoalSettingScreen(
                     )
 
                     Text(
-                        text = "計算式: 次の目標 = floor(今週平均 - きつさ)\n範囲: 0.2 ～ 20.0 の間で選択可能",
+                        text = "計算式: 次の目標 = floor(今週平均 / きつさ)\n範囲: 1.2 ～ 20.0 の間で選択可能",
                         fontSize = 12.sp,
                         color = MutedSoft,
                         modifier = Modifier.padding(top = 4.dp)
@@ -132,7 +132,6 @@ fun GoalSettingScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // きつさの数値表示 (0.2 ～ 20.0)
                     Text(
                         text = "きつさの値: ${String.format("%.1f", difficulty)}",
                         fontSize = 18.sp,
@@ -140,15 +139,14 @@ fun GoalSettingScreen(
                         color = Accent
                     )
 
-                    // 🎚️ スライダー (0.2f ～ 20.0f)
+                    // 🎚️ スライダー (1.2f ～ 20.0f)
                     Slider(
                         value = difficulty.toFloat(),
                         onValueChange = { newValue ->
-                            // 0.1刻みに丸めて 0.2f ～ 20.0f の範囲に制限
                             val rounded = (newValue * 10).roundToInt() / 10.0
-                            difficulty = rounded.coerceIn(0.2, 20.0)
+                            difficulty = rounded.coerceIn(1.2, 20.0)
                         },
-                        valueRange = 0.2f..20.0f,
+                        valueRange = 1.2f..20.0f,
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -160,21 +158,21 @@ fun GoalSettingScreen(
                         horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
                         OutlinedButton(onClick = {
-                            difficulty = ((difficulty - 1.0) * 10).roundToInt() / 10.0.coerceIn(0.2, 20.0)
+                            difficulty = ((difficulty - 1.0) * 10).roundToInt() / 10.0.coerceIn(1.2, 20.0)
                         }) { Text("-1.0") }
                         OutlinedButton(onClick = {
-                            difficulty = ((difficulty - 0.1) * 10).roundToInt() / 10.0.coerceIn(0.2, 20.0)
+                            difficulty = ((difficulty - 0.1) * 10).roundToInt() / 10.0.coerceIn(1.2, 20.0)
                         }) { Text("-0.1") }
                         OutlinedButton(onClick = {
-                            difficulty = ((difficulty + 0.1) * 10).roundToInt() / 10.0.coerceIn(0.2, 20.0)
+                            difficulty = ((difficulty + 0.1) * 10).roundToInt() / 10.0.coerceIn(1.2, 20.0)
                         }) { Text("+0.1") }
                         OutlinedButton(onClick = {
-                            difficulty = ((difficulty + 1.0) * 10).roundToInt() / 10.0.coerceIn(0.2, 20.0)
+                            difficulty = ((difficulty + 1.0) * 10).roundToInt() / 10.0.coerceIn(1.2, 20.0)
                         }) { Text("+1.0") }
                     }
 
                     val calculatedNext = if (uiState.currentGoal <= 0) 0 
-                                         else kotlin.math.floor(uiState.weeklyDailyAverage - difficulty).toInt().coerceIn(0, uiState.currentGoal)
+                                         else kotlin.math.floor(uiState.weeklyDailyAverage / difficulty).toInt().coerceIn(0, uiState.currentGoal)
 
                     Spacer(modifier = Modifier.height(16.dp))
 
