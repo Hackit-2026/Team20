@@ -19,7 +19,7 @@ SCHEMA_PATH = os.path.join(os.path.dirname(__file__), "schema.sql")
 app = FastAPI(
     title="ヤニモグラ (YANI-GOTCHI) バックエンドサーバー",
     description="SQLite SQL データベース & LM Studio (google/gemma-4-12b-qat) 連携サーバー",
-    version="2.6.0"
+    version="2.7.0"
 )
 
 # CORS設定（すべてのIPからのアクセス許可）
@@ -31,11 +31,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# LM Studio の候補URL（高速応答のためにローカルホスト 127.0.0.1 を最優先）
 LM_STUDIO_BASE_URLS = [
-    "http://192.168.25.42:11434",
-    "http://172.0.0.1:11434",
     "http://127.0.0.1:11434",
-    "http://localhost:11434"
+    "http://localhost:11434",
+    "http://192.168.25.42:11434",
+    "http://172.0.0.1:11434"
 ]
 
 MODEL_CANDIDATES = [
@@ -121,7 +122,8 @@ PERSONA_CONFIGS = [
 async def get_active_lm_studio_model(base_url: str) -> Optional[str]:
     models_url = f"{base_url}/v1/models"
     try:
-        async with httpx.AsyncClient(timeout=3.0) as client:
+        # 接続チェックタイムアウトを 0.8 秒へ超短縮
+        async with httpx.AsyncClient(timeout=0.8) as client:
             res = await client.get(models_url)
             if res.status_code == 200:
                 data = res.json()
@@ -140,11 +142,12 @@ async def fetch_llm_comment(persona: dict, user_text: str) -> str:
     for base_url in LM_STUDIO_BASE_URLS:
         endpoint_url = f"{base_url}/v1/chat/completions"
         active_model = await get_active_lm_studio_model(base_url)
-        models_to_try = [active_model] + MODEL_CANDIDATES if active_model else MODEL_CANDIDATES
+        if not active_model:
+            continue
+            
+        models_to_try = [active_model] + MODEL_CANDIDATES
 
         for model_name in models_to_try:
-            if not model_name:
-                continue
             payload = {
                 "model": model_name,
                 "messages": messages,
@@ -153,8 +156,8 @@ async def fetch_llm_comment(persona: dict, user_text: str) -> str:
             }
 
             try:
-                async with httpx.AsyncClient(timeout=12.0) as client:
-                    logger.info(f"Sending request to LM Studio ({endpoint_url}) for {persona['name']}...")
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    logger.info(f"Sending request to LM Studio ({base_url}) for {persona['name']}...")
                     response = await client.post(endpoint_url, json=payload)
                     if response.status_code == 200:
                         data = response.json()
