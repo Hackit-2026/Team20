@@ -12,7 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.myapplication.data.AiComment
+import com.example.myapplication.data.MemberComment
 import com.example.myapplication.data.TimelinePost
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -131,7 +131,7 @@ fun PostCard(post: TimelinePost) {
             )
 
             // メンバーのコメント一覧
-            post.aiComments.forEach { comment ->
+            post.memberComments.forEach { comment ->
                 MemberCommentRow(comment = comment)
             }
         }
@@ -139,7 +139,7 @@ fun PostCard(post: TimelinePost) {
 }
 
 @Composable
-fun MemberCommentRow(comment: AiComment) {
+fun MemberCommentRow(comment: MemberComment) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -151,7 +151,7 @@ fun MemberCommentRow(comment: AiComment) {
         Text(text = comment.avatar, fontSize = 20.sp, modifier = Modifier.padding(end = 8.dp))
         Column {
             Text(
-                text = comment.aiName,
+                text = comment.name,
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.secondary

@@ -21,8 +21,8 @@ data class AppSettings(
 )
 
 @Serializable
-data class AiComment(
-    val aiName: String,
+data class MemberComment(
+    val name: String,
     val avatar: String,
     val comment: String
 )
@@ -34,7 +34,7 @@ data class TimelinePost(
     val isNpc: Boolean,
     val text: String,
     val timestamp: String,
-    val aiComments: List<AiComment>
+    val memberComments: List<MemberComment>
 )
 
 @Serializable
@@ -127,17 +127,17 @@ class AppRepo(context: Context) {
             isNpc = false,
             text = text,
             timestamp = "たった今",
-            aiComments = generateAiComments()
+            memberComments = generateMemberComments()
         )
         saveData(data.copy(feed = listOf(newPost) + data.feed))
     }
 
-    private fun generateAiComments(): List<AiComment> {
+    private fun generateMemberComments(): List<MemberComment> {
         return listOf(
-            AiComment("熱血仲間・修造", "🔥", "素晴らしい！！その熱い情熱で明日も突破だ！"),
-            AiComment("ツンデレ友達・アスカ", "😳", "べ、別に感心してないんだからね！でも…えらいじゃない。"),
-            AiComment("Dr.ヘルス", "👨‍⚕️", "素晴らしい成果です。水分を多めに摂ってくださいね。"),
-            AiComment("ヤニモグラ", "👹", "おい！俺のメシ（煙）を奪うな〜！！")
+            MemberComment("熱血仲間・修造", "🔥", "あきらめるな！気合で乗り越えろ！！🔥"),
+            MemberComment("ツンデレ友達・アスカ", "😳", "べ、別に心配してないんだからね！でも…今日我慢できたのは偉いわよ…"),
+            MemberComment("Dr.ヘルス", "👨‍⚕️", "医学的にも最初の3日が山場です。素晴らしい我慢です！"),
+            MemberComment("ヤニモグラ", "👹", "おい！我慢するな！吸って俺を育てろ〜！")
         )
     }
 
@@ -186,8 +186,8 @@ class AppRepo(context: Context) {
 
         val dummyFeed = listOf(
             TimelinePost(
-                "d001", "減煙挑戦中のたかし", true, "今日はついに1本も吸わずに過ごせた！奇跡！", "3時間前",
-                generateAiComments()
+                "d001", "仲間のたかし", true, "今日は一本も吸わずに過ごせた！奇跡！", "3時間前",
+                generateMemberComments()
             )
         )
         

@@ -38,11 +38,11 @@ class MainViewModel(private val repo: AppRepo) : ViewModel() {
     }
 
     fun refreshState() {
+        val settings = repo.getAppSettings()
         val todayCount = repo.getTodayCount()
         val points = repo.getPoints()
         val stageIndex = StageLogic.getStageIndex(points)
         val stats = repo.getChallengeStats()
-        val settings = repo.getAppSettings()
         val allCounts = repo.getAllCounts()
         val confirmedToday = repo.isConfirmedToday()
         val feed = repo.getFeed()
@@ -52,7 +52,8 @@ class MainViewModel(private val repo: AppRepo) : ViewModel() {
         _uiState.update {
             it.copy(
                 todayCount = todayCount,
-                tempCount = if (it.tempCount == 0 && !confirmedToday) settings.dailyGoal else it.tempCount,
+                // 未確定の場合は、設定された「1日の目標本数 (settings.dailyGoal)」を至福の本数の初期値にする
+                tempCount = if (!confirmedToday) settings.dailyGoal else todayCount,
                 points = points,
                 isConfirmedToday = confirmedToday,
                 stageIndex = stageIndex,
@@ -95,6 +96,7 @@ class MainViewModel(private val repo: AppRepo) : ViewModel() {
             notifyMinute = notifyMinute
         )
         repo.saveSettings(newSettings)
+        _uiState.update { it.copy(tempCount = goal) }
         refreshState()
     }
 
