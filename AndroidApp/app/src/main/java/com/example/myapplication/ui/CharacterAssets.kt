@@ -1,21 +1,18 @@
 package com.example.myapplication.ui
 
-import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -35,57 +32,45 @@ private val stageDrawables = listOf(
     R.drawable.char_stage_18, R.drawable.char_stage_19, R.drawable.char_stage_20,
 )
 
-val stageGlow = listOf(
-    Color(0xFFFFFFFF), Color(0xFFCFF8FF), Color(0xFF7EEBFF), Color(0xFF3FD9D6),
-    Color(0xFF72F0A6), Color(0xFFA9F542), Color(0xFFCBEF36), Color(0xFFFFE14A),
-    Color(0xFFFFC53B), Color(0xFFFF9836), Color(0xFFFF7230), Color(0xFFF54848),
-    Color(0xFFF33A7A), Color(0xFFD93BD9), Color(0xFFA552F5), Color(0xFF6558F0),
-    Color(0xFF3F78F0), Color(0xFF2755C8), Color(0xFF1C2F78), Color(0xFF0E1638),
-    Color(0xFF0A0A0A),
-)
-
 val stageColorNames = listOf(
     "ホワイト", "アイスブルー", "シアン", "ターコイズ", "ミントグリーン", "ライム", "イエローグリーン",
     "イエロー", "ゴールド", "オレンジ", "ダークオレンジ", "レッド", "ローズ", "マゼンタ", "パープル",
     "インディゴ", "ブルー", "ディープブルー", "ネイビー", "ダークネイビー", "ブラック",
 )
 
+private val DotRing = Color(0xFF1A1A1A)
+
 /**
- * キャラを丸い「鏡」フレームの中に表示する。説教しないアプリ、ただ鏡を置くだけ、
- * というコンセプトに合わせて、常に暗いスクリーンの上にキャラの色だけが浮かぶ見た目にしている。
+ * キャラクター本体。背景に何も敷かず、黒いドットの輪郭だけで縁取る。
+ * 明るい色のステージ(ホワイト等)でも背景に埋もれないようにするための最小限の処理。
  */
 @Composable
 fun CharacterView(stage: Int, modifier: Modifier = Modifier) {
-    val glow by animateColorAsState(targetValue = stageGlow[stage], label = "stageGlow")
-
     Box(
         modifier = modifier.aspectRatio(1f),
         contentAlignment = Alignment.Center,
     ) {
-        // 背景ににじむ、ステージ色のアンビエントグロー
-        Box(
-            modifier = Modifier
-                .fillMaxSize(0.85f)
-                .background(
-                    Brush.radialGradient(listOf(glow.copy(alpha = 0.55f), glow.copy(alpha = 0f)))
-                )
-        )
-        // 鏡ベゼル + 暗いスクリーン
-        Box(
-            modifier = Modifier
-                .fillMaxSize(0.72f)
-                .shadow(elevation = 12.dp, shape = CircleShape, clip = false)
-                .clip(CircleShape)
-                .background(Color(0xFF12151B)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Image(
-                painter = painterResource(stageDrawables[stage]),
-                contentDescription = "キャラクター(S$stage ${stageColorNames[stage]})",
-                contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxSize(0.66f),
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val strokeWidth = 3.dp.toPx()
+            drawCircle(
+                color = DotRing,
+                radius = (size.minDimension / 2f) - strokeWidth,
+                style = Stroke(
+                    width = strokeWidth,
+                    cap = StrokeCap.Round,
+                    pathEffect = PathEffect.dashPathEffect(
+                        intervals = floatArrayOf(0.1f, strokeWidth * 2.6f),
+                        phase = 0f,
+                    ),
+                ),
             )
         }
+        Image(
+            painter = painterResource(stageDrawables[stage]),
+            contentDescription = "キャラクター(S$stage ${stageColorNames[stage]})",
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.fillMaxSize(0.62f),
+        )
     }
 }
 
@@ -93,6 +78,6 @@ fun CharacterView(stage: Int, modifier: Modifier = Modifier) {
 @Composable
 private fun CharacterViewPreview() {
     MyApplicationTheme {
-        CharacterView(stage = 12, modifier = Modifier.size(220.dp))
+        CharacterView(stage = 12, modifier = Modifier.size(200.dp))
     }
 }
