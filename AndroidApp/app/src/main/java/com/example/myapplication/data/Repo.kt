@@ -3,6 +3,7 @@ package com.example.myapplication.data
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
+import com.example.myapplication.logic.StageLogic
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -13,15 +14,37 @@ import java.time.format.DateTimeFormatter
 data class AppSettings(
     val startDate: String = LocalDate.now().toString(),
     val days: Int = 7,
-    val dailyGoal: Int = 0,
-    val notifyHour: Int = 21
+    val dailyGoal: Int = 10,
+    val notifyHour: Int = 21,
+    val notifyMinute: Int = 0,
+    val serverUrl: String = "http://192.168.25.42:8000"
+)
+
+@Serializable
+data class AiComment(
+    val aiName: String,
+    val avatar: String,
+    val comment: String
+)
+
+@Serializable
+data class TimelinePost(
+    val postId: String,
+    val author: String,
+    val isNpc: Boolean,
+    val text: String,
+    val timestamp: String,
+    val aiComments: List<AiComment>
 )
 
 @Serializable
 data class AppData(
     val settings: AppSettings = AppSettings(),
     val counts: Map<String, Int> = emptyMap(),
-    val isInitialized: Boolean = false
+    val points: Int = 0,
+    val isInitialized: Boolean = false,
+    val lastConfirmedDate: String? = null,
+    val feed: List<TimelinePost> = emptyList()
 )
 
 class AppRepo(context: Context) {
@@ -54,21 +77,68 @@ class AppRepo(context: Context) {
         saveData(data.copy(settings = settings, isInitialized = true))
     }
 
+    fun getServerUrl(): String = loadData().settings.serverUrl
+
+    fun saveServerUrl(url: String) {
+        val data = loadData()
+        val updatedSettings = data.settings.copy(serverUrl = url)
+        saveData(data.copy(settings = updatedSettings))
+    }
+
     fun isInitialized(): Boolean = loadData().isInitialized
 
-    fun getCount(date: String): Int = loadData().counts[date] ?: 0
+    fun getCount(date: String): Int = loadData().counts[date] ?: loadData().settings.dailyGoal
 
-    fun getTodayCount(): Int = getCount(getTodayDate())
+    /** 本日の至福の本数（初期値ははじめに設定した1日の目標本数） */
+    fun getTodayCount(): Int = loadData().counts[getTodayDate()] ?: loadData().settings.dailyGoal
+    
+    fun isConfirmedToday(): Boolean = loadData().lastConfirmedDate == getTodayDate()
 
-    fun updateTodayCount(delta: Int) {
+    fun updateTodayCount(count: Int) {
         val data = loadData()
         val today = getTodayDate()
-        val currentCount = data.counts[today] ?: 0
-        val newCount = (currentCount + delta).coerceAtLeast(0)
+        
         val newCounts = data.counts.toMutableMap().apply {
-            put(today, newCount)
+            put(today, count)
         }
-        saveData(data.copy(counts = newCounts))
+
+        // ポイント計算ルール: (本数 - 1) pt
+        var totalPoints = 0
+        newCounts.values.forEach { c ->
+            totalPoints += (c - 1)
+        }
+        
+        saveData(data.copy(
+            counts = newCounts, 
+            points = totalPoints.coerceIn(0, StageLogic.MAX_POINTS),
+            lastConfirmedDate = today
+        ))
+    }
+
+    fun getPoints(): Int = loadData().points
+
+    fun getFeed(): List<TimelinePost> = loadData().feed
+
+    fun postToTimeline(text: String) {
+        val data = loadData()
+        val newPost = TimelinePost(
+            postId = "p_${System.currentTimeMillis()}",
+            author = "あなた",
+            isNpc = false,
+            text = text,
+            timestamp = "たった今",
+            aiComments = generateAiComments()
+        )
+        saveData(data.copy(feed = listOf(newPost) + data.feed))
+    }
+
+    private fun generateAiComments(): List<AiComment> {
+        return listOf(
+            AiComment("熱血仲間・修造", "🔥", "素晴らしい！！その熱い情熱で明日も突破だ！"),
+            AiComment("ツンデレ友達・アスカ", "😳", "べ、別に感心してないんだからね！でも…えらいじゃない。"),
+            AiComment("Dr.ヘルス", "👨‍⚕️", "素晴らしい成果です。水分を多めに摂ってくださいね。"),
+            AiComment("ヤニモグラ", "👹", "おい！俺のメシ（煙）を奪うな〜！！")
+        )
     }
 
     fun getAllCounts(): Map<String, Int> = loadData().counts
@@ -86,7 +156,6 @@ class AppRepo(context: Context) {
         val totalCount = data.counts.values.sum()
         val averageDaily = if (data.counts.isEmpty()) 0f else totalCount.toFloat() / data.counts.size
         val targetTotal = data.settings.dailyGoal * data.settings.days
-        // 目標本数を超えたら「達成（育成成功）」とする
         val isTargetAchieved = totalCount >= targetTotal
 
         return ChallengeStats(
@@ -94,7 +163,8 @@ class AppRepo(context: Context) {
             totalCount = totalCount,
             averageDaily = averageDaily,
             isTargetAchieved = isTargetAchieved,
-            targetTotal = targetTotal
+            targetTotal = targetTotal,
+            currentPoints = data.points
         )
     }
 
@@ -102,15 +172,31 @@ class AppRepo(context: Context) {
         saveData(AppData())
     }
 
-    fun addDummyData() {
+    fun injectDummyData() {
         val data = loadData()
         val today = LocalDate.now()
         val newCounts = data.counts.toMutableMap()
-        for (i in 1..3) {
+        for (i in 1..30) {
             val date = today.minusDays(i.toLong()).format(dateFormatter)
-            newCounts[date] = (2..12).random()
+            newCounts[date] = (0..15).random()
         }
-        saveData(data.copy(counts = newCounts))
+        
+        var totalPoints = 0
+        newCounts.values.forEach { c -> totalPoints += (c - 1) }
+
+        val dummyFeed = listOf(
+            TimelinePost(
+                "d001", "減煙挑戦中のたかし", true, "今日はついに1本も吸わずに過ごせた！奇跡！", "3時間前",
+                generateAiComments()
+            )
+        )
+        
+        saveData(data.copy(
+            counts = newCounts, 
+            points = totalPoints.coerceIn(0, StageLogic.MAX_POINTS),
+            feed = dummyFeed,
+            isInitialized = true
+        ))
     }
 }
 
@@ -119,5 +205,6 @@ data class ChallengeStats(
     val totalCount: Int,
     val averageDaily: Float,
     val isTargetAchieved: Boolean,
-    val targetTotal: Int
+    val targetTotal: Int,
+    val currentPoints: Int = 0
 )
