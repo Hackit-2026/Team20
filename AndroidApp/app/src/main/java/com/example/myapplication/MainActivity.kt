@@ -35,7 +35,6 @@ import com.example.myapplication.ui.theme.MyApplicationTheme
 
 class MainActivity : ComponentActivity() {
 
-    // Manual Dependency Injection for simplicity in this project
     private val viewModel: MainViewModel by viewModels {
         object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -53,15 +52,12 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         Reminder.createChannel(this)
         requestNotificationPermission()
-        // 一日の最後(21:00)に、未申告なら申告を促す通知を送る(これは通知でOK)
         Reminder.enableDaily(this, hour = 21, minute = 0)
         enableEdgeToEdge()
         setContent {
             MyApplicationTheme {
                 val uiState by viewModel.uiState.collectAsState()
 
-                // ペナルティは通知ではなく、他アプリを開いた時に重ねて出す警告で表示する。
-                // そのための常駐サービスを、必要な権限が揃っている間だけ動かす。
                 LaunchedEffect(overlayGranted, usageAccessGranted) {
                     if (overlayGranted && usageAccessGranted) {
                         PenaltyWatcherService.start(this@MainActivity)
@@ -75,31 +71,27 @@ class MainActivity : ComponentActivity() {
                         onDecrementTemp = { viewModel.decrementTempCount() },
                         onSaveReport = { viewModel.saveReport() },
                         onResetAll = { viewModel.resetAll() },
+                        onSubmitForDate = { dateStr, count -> viewModel.submitReportForDate(dateStr, count) },
+                        onApplyNextGoal = { difficulty -> viewModel.applyNextGoal(difficulty) },
+                        onInject30DaysDemo = { viewModel.inject30DaysDemoData() },
+                        onSaveNotifyTime = { hour, min ->
+                            viewModel.saveNotifyTime(hour, min)
+                            Reminder.enableDaily(this@MainActivity, hour, min)
+                        },
                         overlayPermissionGranted = overlayGranted,
                         usageAccessGranted = usageAccessGranted,
                         onRequestOverlayPermission = { requestOverlayPermission() },
                         onRequestUsageAccess = { requestUsageAccess() },
                     )
 
-                    // 1週間に2本以上吸っている場合、アプリを開くたびに1分間閉じられない
-                    // 重いペナルティ画面を表示する(絶対要件のメッセージ)。
-                    // キーを付けずにrememberすることで、この画面を開いた瞬間の状態だけで
-                    // 一度だけ判定する。保存操作の直後に条件を満たしても、同じ滞在中に
-                    // 即座には出てこないようにするため。
                     var showHeavyPenalty by remember {
                         mutableStateOf(uiState.weeklyTotal >= 2)
                     }
 
-                    // 画面ピン留め(Screen Pinning)。通知シェードや最近使ったアプリへ
-                    // 抜け出しにくくするための標準API。root/Device Owner権限は不要だが、
-                    // 「戻る+最近使用したアプリを長押し」で解除する手段はOS側に残るため、
-                    // 完全に脱出不可能にはできない点は限界として了承のうえで使う。
                     LaunchedEffect(showHeavyPenalty) {
                         try {
                             if (showHeavyPenalty) startLockTask() else stopLockTask()
                         } catch (e: Exception) {
-                            // 端末やOSバージョンによっては使えないことがあるが、
-                            // その場合も警告画面自体は通常どおり表示され続ける
                         }
                     }
 
@@ -116,7 +108,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Settings画面から戻ってきたタイミングで権限状態を再チェックする
         overlayGranted = canDrawOverlays()
         usageAccessGranted = hasUsageAccess()
     }

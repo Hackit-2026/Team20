@@ -10,6 +10,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
+import kotlin.math.floor
 
 @Serializable
 data class DailyReport(
@@ -23,8 +24,7 @@ data class AppData(
     val reports: Map<String, DailyReport> = emptyMap(),
     val notifyHour: Int = 21,
     val notifyMinute: Int = 0,
-    // 目標は最初から0本。この日から吸わずに3か月経てば目標達成。
-    // 吸ったと申告された翌日にリセットされる。
+    val currentGoal: Int = 10, // 現在の1日あたり目標本数（初期値10本）
     val streakStartDate: String = LocalDate.now(ZoneId.of("Asia/Tokyo")).toString(),
     val isInitialized: Boolean = false,
 )
@@ -36,7 +36,6 @@ class AppRepo(context: Context) {
     private val json = Json { ignoreUnknownKeys = true }
     private val dateFormatter = DateTimeFormatter.ISO_LOCAL_DATE
 
-    // 端末のタイムゾーンに関わらず、常に日本時間で「今日」を判定する
     fun getTodayDate(): String = LocalDate.now(JST).format(dateFormatter)
 
     private fun loadData(): AppData {
@@ -56,9 +55,19 @@ class AppRepo(context: Context) {
 
     fun isReportedToday(): Boolean = getTodayReport().reported
 
+    fun getCurrentGoal(): Int = loadData().currentGoal
+
+    fun getNotifyHour(): Int = loadData().notifyHour
+
+    fun getNotifyMinute(): Int = loadData().notifyMinute
+
+    fun saveNotifyTime(hour: Int, minute: Int) {
+        val data = loadData()
+        saveData(data.copy(notifyHour = hour, notifyMinute = minute))
+    }
+
     /**
-     * 申告を保存する。吸っていない場合は本数を強制的に0にする。
-     * 「吸った」を申告した場合、3か月目標のカウントは翌日から再スタートする。
+     * 申告を保存する。
      */
     fun submitReport(smoked: Boolean, count: Int) {
         val data = loadData()
@@ -74,6 +83,17 @@ class AppRepo(context: Context) {
         saveData(data.copy(reports = newReports, streakStartDate = newStreakStart, isInitialized = true))
     }
 
+    /**
+     * 🛠️ デバッグ機能: 何月何日 (YYYY-MM-DD) を指定してタバコのデータを入れる
+     */
+    fun submitReportForDate(dateStr: String, smoked: Boolean, count: Int) {
+        val data = loadData()
+        val newReports = data.reports.toMutableMap().apply {
+            put(dateStr, DailyReport(reported = true, smoked = smoked, count = if (smoked) count.coerceAtLeast(0) else 0))
+        }
+        saveData(data.copy(reports = newReports, isInitialized = true))
+    }
+
     fun getAllReports(): Map<String, DailyReport> = loadData().reports
 
     /** 過去7日間(今日を含む)の合計本数 */
@@ -86,9 +106,74 @@ class AppRepo(context: Context) {
         }
     }
 
+    /** 過去7日間の1日あたり単純平均本数 */
+    fun getWeeklyDailyAverage(): Double {
+        return getWeeklyTotal() / 7.0
+    }
+
+    /**
+     * ⚖️ 先日から1週間前までのタバコの吸った量の重みづけ (Weighted Average)
+     * 昨日=1.0, 2日前=0.85, 3日前=0.7, 4日前=0.55, 5日前=0.4, 6日前=0.25, 7日前=0.1
+     */
+    fun calculateWeightedAverage(): Double {
+        val data = loadData()
+        val today = LocalDate.now(JST)
+        val weights = listOf(1.0, 0.85, 0.7, 0.55, 0.4, 0.25, 0.1)
+        var weightedSum = 0.0
+        var totalWeight = 0.0
+
+        for (i in 0 until 7) {
+            val date = today.minusDays((i + 1).toLong()).format(dateFormatter)
+            val count = data.reports[date]?.count ?: 0
+            val w = weights[i]
+            weightedSum += count * w
+            totalWeight += w
+        }
+        return if (totalWeight > 0) weightedSum / totalWeight else 0.0
+    }
+
+    /**
+     * 🎯 目標を少しずつ減らす計算
+     * 計算式: 次の目標 = floor(今週の1日あたり平均吸った本数 - ユーザーが決めたきつさの値)
+     * ※ 今回の目標が 0 であれば 0 で出力する。
+     */
+    fun calculateNextGoal(difficulty: Double): Int {
+        val data = loadData()
+        val currentGoal = data.currentGoal
+        if (currentGoal <= 0) return 0 // 今回の目標が0であれば0で出力
+
+        val weeklyAvg = getWeeklyDailyAverage()
+        val nextGoalCalc = floor(weeklyAvg - difficulty).toInt()
+        return nextGoalCalc.coerceIn(0, currentGoal)
+    }
+
+    fun applyNextGoal(difficulty: Double) {
+        val nextGoal = calculateNextGoal(difficulty)
+        val data = loadData()
+        saveData(data.copy(currentGoal = nextGoal))
+    }
+
+    /**
+     * 📊 デバッグ用: 過去30日間のデモデータを一括自動挿入
+     */
+    fun inject30DaysDemoData() {
+        val data = loadData()
+        val today = LocalDate.now(JST)
+        val newReports = data.reports.toMutableMap()
+
+        for (i in 1..30) {
+            val dateStr = today.minusDays(i.toLong()).format(dateFormatter)
+            val smoked = (0..100).random() > 30 // 70%の確率で吸った
+            val count = if (smoked) (1..15).random() else 0
+            newReports[dateStr] = DailyReport(reported = true, smoked = smoked, count = count)
+        }
+
+        saveData(data.copy(reports = newReports, isInitialized = true))
+    }
+
     fun isInitialized(): Boolean = loadData().isInitialized
 
-    /** 全データを削除して初期状態に戻す */
+    /** 全データをリセットし始めからスタートする機能 */
     fun resetAllData() {
         saveData(AppData())
     }

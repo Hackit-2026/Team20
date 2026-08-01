@@ -7,21 +7,31 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,7 +51,6 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-// アプリ全体で使う静かなパレット(ui パッケージ内で共有)。
 val ScreenBg = Color(0xFFE7E9EA)
 val Ink = Color(0xFF20242B)
 val Muted = Color(0xFF6B7280)
@@ -56,17 +65,21 @@ fun HomeScreen(
     onDecrementTemp: () -> Unit,
     onSaveReport: () -> Unit,
     onResetAll: () -> Unit = {},
+    onSubmitForDate: (String, Int) -> Unit = { _, _ -> },
+    onApplyNextGoal: (Double) -> Unit = {},
+    onInject30DaysDemo: () -> Unit = {},
+    onSaveNotifyTime: (Int, Int) -> Unit = { _, _ -> },
     overlayPermissionGranted: Boolean = true,
     usageAccessGranted: Boolean = true,
     onRequestOverlayPermission: () -> Unit = {},
     onRequestUsageAccess: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    // 端末のタイムゾーンに関わらず、常に日本時間の日付を表示する
     val today = remember {
         LocalDate.now(ZoneId.of("Asia/Tokyo")).format(DateTimeFormatter.ofPattern("M/d"))
     }
     val report = uiState.today
+    var showDebugPanel by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -85,7 +98,6 @@ fun HomeScreen(
             )
         }
 
-        // 日付(日本時間)を中央に大きく表示
         Text(
             text = today,
             color = Ink,
@@ -94,25 +106,23 @@ fun HomeScreen(
             modifier = Modifier.padding(top = 12.dp),
         )
 
-        // 項目名(今後の複数項目対応の置き場所。現状は禁煙のみ)
         Text(
-            text = "禁煙",
+            text = "禁煙・減煙チャレンジ",
             color = Muted,
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(top = 8.dp),
         )
 
-        // 目標は0本から。吸わずに3か月経つと達成。
         GoalLine(daysUntilGoal = uiState.daysUntilGoal, achieved = uiState.goalAchieved)
 
-        // 本日の申告状況(あくまで小さいステータス表示。ペナルティの警告自体は
-        // 他アプリを開いた時のオーバーレイ側=アプリの外に出すので、ここは画面を占領しない)
         StatusLine(report)
 
-        // 本数入力は申告済みかどうかに関わらず常にここから操作できる(再申告も可能)。
-        // 0本のまま保存すれば「吸わなかった」扱いになるので、吸った/吸わなかったの
-        // 二択画面自体を挟まない。
+        WeightedAverageSection(
+            uiState = uiState,
+            onApplyNextGoal = onApplyNextGoal
+        )
+
         CountSection(
             tempCount = uiState.tempCount,
             onIncrementTemp = onIncrementTemp,
@@ -120,11 +130,25 @@ fun HomeScreen(
             onSaveReport = onSaveReport,
         )
 
-        // これまでの申告履歴を一覧表示
         HistorySection(allReports = uiState.allReports)
 
-        TextButton(onClick = onResetAll, modifier = Modifier.padding(top = 12.dp)) {
-            Text("全データをリセット", fontSize = 11.sp, color = MutedSoft)
+        Spacer(modifier = Modifier.height(24.dp))
+
+        OutlinedButton(
+            onClick = { showDebugPanel = !showDebugPanel },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(if (showDebugPanel) "🛠️ デバッグ・詳細設定を閉じる" else "🛠️ デバッグ・詳細設定を開く")
+        }
+
+        if (showDebugPanel) {
+            DebugToolsSection(
+                uiState = uiState,
+                onSubmitForDate = onSubmitForDate,
+                onInject30DaysDemo = onInject30DaysDemo,
+                onSaveNotifyTime = onSaveNotifyTime,
+                onResetAll = onResetAll
+            )
         }
     }
 }
@@ -201,6 +225,117 @@ private fun StatusLine(report: DailyReport) {
 }
 
 @Composable
+private fun WeightedAverageSection(
+    uiState: UiState,
+    onApplyNextGoal: (Double) -> Unit
+) {
+    var difficulty by remember { mutableDoubleStateOf(1.0) }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "📊 喫煙量の分析 ＆ 目標減煙設定",
+                style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = Ink
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(text = "直近1週間の重み付き平均:", fontSize = 13.sp, color = Muted)
+                Text(
+                    text = String.format("%.1f 本/日", uiState.weightedAverage),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Accent
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(text = "今週の1日あたり平均:", fontSize = 13.sp, color = Muted)
+                Text(
+                    text = String.format("%.1f 本/日", uiState.weeklyDailyAverage),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Ink
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(text = "現在の目標本数:", fontSize = 13.sp, color = Muted)
+                Text(
+                    text = "${uiState.currentGoal} 本",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Accent
+                )
+            }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+            Text(
+                text = "🎯 次の目標を少しずつ減らす",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = Ink
+            )
+            Text(
+                text = "きつさの値: ${String.format("%.1f", difficulty)} (今週平均 - きつさ)",
+                fontSize = 11.sp,
+                color = MutedSoft,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+
+            Slider(
+                value = difficulty.toFloat(),
+                onValueChange = { difficulty = it.toDouble() },
+                valueRange = 0.0f..3.0f,
+                steps = 5,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            val calculatedNext = if (uiState.currentGoal <= 0) 0 
+                                 else kotlin.math.floor(uiState.weeklyDailyAverage - difficulty).toInt().coerceIn(0, uiState.currentGoal)
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "計算後の次回目標: ${calculatedNext}本",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (calculatedNext == 0) Accent else Ink
+                )
+                Button(
+                    onClick = { onApplyNextGoal(difficulty) },
+                    colors = ButtonDefaults.buttonColors(containerColor = Accent)
+                ) {
+                    Text("新目標を適用", fontSize = 12.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun CountSection(
     tempCount: Int,
     onIncrementTemp: () -> Unit,
@@ -211,7 +346,7 @@ private fun CountSection(
         text = "何本吸いましたか？",
         color = Muted,
         fontSize = 14.sp,
-        modifier = Modifier.padding(top = 32.dp),
+        modifier = Modifier.padding(top = 24.dp),
     )
     Row(
         horizontalArrangement = Arrangement.spacedBy(24.dp),
@@ -249,7 +384,7 @@ private fun CountSection(
         onClick = onSaveReport,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 24.dp),
+            .padding(top = 20.dp),
         colors = ButtonDefaults.buttonColors(containerColor = Ink),
     ) {
         Text("保存")
@@ -261,14 +396,14 @@ private fun HistorySection(allReports: Map<String, DailyReport>) {
     val sortedDates = remember(allReports) { allReports.keys.sortedDescending() }
     if (sortedDates.isEmpty()) return
 
-    Column(modifier = Modifier.fillMaxWidth().padding(top = 32.dp)) {
+    Column(modifier = Modifier.fillMaxWidth().padding(top = 24.dp)) {
         Text(
             text = "履歴",
             color = Muted,
             fontSize = 13.sp,
             fontWeight = FontWeight.Bold,
         )
-        sortedDates.forEach { date ->
+        sortedDates.take(7).forEach { date ->
             val entry = allReports.getValue(date)
             Row(
                 modifier = Modifier
@@ -288,9 +423,117 @@ private fun HistorySection(allReports: Map<String, DailyReport>) {
     }
 }
 
+@Composable
+private fun DebugToolsSection(
+    uiState: UiState,
+    onSubmitForDate: (String, Int) -> Unit,
+    onInject30DaysDemo: () -> Unit,
+    onSaveNotifyTime: (Int, Int) -> Unit,
+    onResetAll: () -> Unit
+) {
+    var dateInput by remember { mutableStateOf(LocalDate.now().toString()) }
+    var countInput by remember { mutableStateOf("5") }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "🛠️ デバッグ機能パネル",
+                style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = Ink
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(text = "📅 何月何日を選択してデータを追加 (デバッグ用)", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = dateInput,
+                    onValueChange = { dateInput = it },
+                    label = { Text("日付 (YYYY-MM-DD)", fontSize = 10.sp) },
+                    modifier = Modifier.weight(2f),
+                    singleLine = true
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                OutlinedTextField(
+                    value = countInput,
+                    onValueChange = { countInput = it.filter { c -> c.isDigit() } },
+                    label = { Text("本数", fontSize = 10.sp) },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true
+                )
+            }
+            Button(
+                onClick = {
+                    val count = countInput.toIntOrNull() ?: 0
+                    if (dateInput.isNotBlank()) {
+                        onSubmitForDate(dateInput, count)
+                    }
+                },
+                modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Accent)
+            ) {
+                Text("指定日付のデータを登録", fontSize = 12.sp)
+            }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+            Text(text = "📊 過去30日間のデモデータを一括追加", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Button(
+                onClick = onInject30DaysDemo,
+                modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Accent)
+            ) {
+                Text("過去30日分のデモデータを投入", fontSize = 12.sp)
+            }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+            Text(text = "⏰ リマインド通知時刻の設定", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = "現在の時刻: ${uiState.notifyHour}時 ${uiState.notifyMinute}分", fontSize = 12.sp)
+                Row {
+                    OutlinedButton(onClick = {
+                        val newH = (uiState.notifyHour + 1) % 24
+                        onSaveNotifyTime(newH, uiState.notifyMinute)
+                    }) { Text("時+", fontSize = 11.sp) }
+                    Spacer(modifier = Modifier.width(4.dp))
+                    OutlinedButton(onClick = {
+                        val newM = (uiState.notifyMinute + 15) % 60
+                        onSaveNotifyTime(uiState.notifyHour, newM)
+                    }) { Text("分+", fontSize = 11.sp) }
+                }
+            }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+            Text(text = "🚨 全データ初期化", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Warn)
+            Button(
+                onClick = onResetAll,
+                modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Warn)
+            ) {
+                Text("すべてのデータをリセットして最初からスタート", fontSize = 12.sp)
+            }
+        }
+    }
+}
+
 /**
  * 1週間に2本以上吸った場合の重いペナルティ。1分間は閉じられない全画面ブロック。
- * 「アプリを使う時にメッセージ表示」の絶対要件のうち、特に重いケース用。
  */
 @Composable
 fun HeavyPenaltyOverlay(weeklyTotal: Int, onDismiss: () -> Unit) {
@@ -310,7 +553,7 @@ fun HeavyPenaltyOverlay(weeklyTotal: Int, onDismiss: () -> Unit) {
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
-                onClick = {}, // 背後のUIへのタップを吸収する
+                onClick = {},
             )
             .padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -357,21 +600,6 @@ private fun HomeScreenUnreportedPreview() {
             onIncrementTemp = {},
             onDecrementTemp = {},
             onSaveReport = {},
-        )
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun HomeScreenPenaltyPreview() {
-    MyApplicationTheme {
-        HomeScreen(
-            uiState = UiState(today = DailyReport(reported = true, smoked = true, count = 3)),
-            onIncrementTemp = {},
-            onDecrementTemp = {},
-            onSaveReport = {},
-            overlayPermissionGranted = false,
-            usageAccessGranted = false,
         )
     }
 }

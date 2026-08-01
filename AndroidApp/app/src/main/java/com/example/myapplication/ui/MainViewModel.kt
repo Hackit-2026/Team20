@@ -10,15 +10,16 @@ import kotlinx.coroutines.flow.update
 
 data class UiState(
     val today: DailyReport = DailyReport(),
-    // 本数入力の一時状態。未申告時は初期値10本、申告済みなら既存の値を編集できるように
-    // その値を読み込む(本日のデータの修正用)
     val tempCount: Int = 10,
-    // 目標は0本からスタートし、吸わずに3か月経つと達成
     val daysUntilGoal: Long = 0,
     val goalAchieved: Boolean = false,
-    // 過去7日間の合計本数。2本以上で重いペナルティの対象になる
     val weeklyTotal: Int = 0,
-    // 日付(YYYY-MM-DD) → その日の申告、の一覧。新しい日付順ではなくストア順そのまま
+    val weeklyDailyAverage: Double = 0.0,
+    val weightedAverage: Double = 0.0,
+    val currentGoal: Int = 10,
+    val calculatedNextGoal: Int = 10,
+    val notifyHour: Int = 21,
+    val notifyMinute: Int = 0,
     val allReports: Map<String, DailyReport> = emptyMap(),
 )
 
@@ -31,15 +32,22 @@ class MainViewModel(private val repo: AppRepo) : ViewModel() {
         refreshState()
     }
 
-    private fun refreshState() {
+    fun refreshState() {
         val today = repo.getTodayReport()
+        val currentGoal = repo.getCurrentGoal()
         _uiState.update {
             UiState(
                 today = today,
-                tempCount = if (today.reported) today.count else 10,
+                tempCount = if (today.reported) today.count else currentGoal,
                 daysUntilGoal = repo.daysUntilGoal(),
                 goalAchieved = repo.isGoalAchieved(),
                 weeklyTotal = repo.getWeeklyTotal(),
+                weeklyDailyAverage = repo.getWeeklyDailyAverage(),
+                weightedAverage = repo.calculateWeightedAverage(),
+                currentGoal = currentGoal,
+                calculatedNextGoal = repo.calculateNextGoal(1.0), // デフォルト難易度 1.0
+                notifyHour = repo.getNotifyHour(),
+                notifyMinute = repo.getNotifyMinute(),
                 allReports = repo.getAllReports(),
             )
         }
@@ -60,7 +68,31 @@ class MainViewModel(private val repo: AppRepo) : ViewModel() {
         refreshState()
     }
 
-    /** 全データを削除して最初からやり直す(デバッグ用) */
+    /** 🛠️ デバッグ機能: 何月何日 (YYYY-MM-DD) を指定してタバコデータを投入 */
+    fun submitReportForDate(dateStr: String, count: Int) {
+        repo.submitReportForDate(dateStr, smoked = count > 0, count = count)
+        refreshState()
+    }
+
+    /** 🎯 きつさ(難易度)に応じた次の目標を計算＆適用 */
+    fun applyNextGoal(difficulty: Double) {
+        repo.applyNextGoal(difficulty)
+        refreshState()
+    }
+
+    /** 📊 過去30日間のデモデータを一括挿入 */
+    fun inject30DaysDemoData() {
+        repo.inject30DaysDemoData()
+        refreshState()
+    }
+
+    /** ⏰ 通知時刻を変更 */
+    fun saveNotifyTime(hour: Int, minute: Int) {
+        repo.saveNotifyTime(hour, minute)
+        refreshState()
+    }
+
+    /** 🔄 全データを削除して最初からやり直す(完全リセット) */
     fun resetAll() {
         repo.resetAllData()
         refreshState()
