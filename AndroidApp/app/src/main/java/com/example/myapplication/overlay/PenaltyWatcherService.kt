@@ -31,12 +31,6 @@ import kotlinx.coroutines.launch
 
 private enum class OverlayKind { NONE, LIGHT, HEAVY }
 
-/**
- * 🚨 他アプリ起動時 ＆ 自アプリ画面遷移時における強固な2段階ペナルティサービス
- *
- * 対策1: ペナルティロックタイムスタンプを保存し、アプリ再起動や画面遷移を行っても60秒間は絶対逃れられない。
- * 対策2: 重度ペナルティ中 (PenaltyValue >= 5.0) は、自アプリに戻った場合でも removeOverlay() せず画面ブロックを維持。
- */
 class PenaltyWatcherService : Service() {
 
     private val scope = CoroutineScope(Dispatchers.Main + Job())
@@ -77,7 +71,6 @@ class PenaltyWatcherService : Service() {
 
                 val currentHeavyActive = repo.isHeavyPenaltyActive()
 
-                // 🚨 対策2: 重度ペナルティ中であれば、自アプリに戻った場合でも解除せず全画面ロックを維持！
                 if (currentHeavyActive) {
                     if (overlayView == null || currentOverlayKind != OverlayKind.HEAVY) {
                         removeOverlay()
@@ -172,7 +165,7 @@ class PenaltyWatcherService : Service() {
         }
     }
 
-    /** 🚨 重度ペナルティ: 60秒間カウントダウン。タイマー完了まで絶対解除不可 */
+    /** 🚨 重度ペナルティ: 60秒間カウントダウン。タイマー完了時に「閉じる」を押して解除 */
     private fun showHeavyOverlay(repo: AppRepo) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) return
         val density = resources.displayMetrics.density
@@ -186,7 +179,10 @@ class PenaltyWatcherService : Service() {
         val closeButton = Button(this).apply {
             text = "閉じる"
             visibility = View.GONE
-            setOnClickListener { removeOverlay() }
+            setOnClickListener {
+                repo.clearHeavyPenaltyLock() // 🚨 カウントダウン完了後に閉じるを押して初めてロック解除！
+                removeOverlay()
+            }
         }
 
         val card = LinearLayout(this).apply {
@@ -227,11 +223,15 @@ class PenaltyWatcherService : Service() {
         scope.launch {
             while (isActive && repo.isHeavyPenaltyActive()) {
                 val rem = repo.getRemainingPenaltySeconds()
-                countdownText.text = "あと${rem}秒は操作できません"
+                if (rem > 0) {
+                    countdownText.text = "あと${rem}秒は操作できません"
+                } else {
+                    break
+                }
                 delay(1000)
             }
             if (overlayView === root) {
-                countdownText.text = ""
+                countdownText.text = "ペナルティ時間が経過しました"
                 closeButton.visibility = View.VISIBLE
             }
         }

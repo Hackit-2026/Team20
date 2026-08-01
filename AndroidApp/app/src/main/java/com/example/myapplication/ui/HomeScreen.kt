@@ -27,7 +27,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -89,14 +88,12 @@ fun HomeScreen(
             )
         }
 
-        // 🧭 各専用画面へのナビゲーションバー
         NavigationHeader(
             onNavigateToHistory = onNavigateToHistory,
             onNavigateToGoalSetting = onNavigateToGoalSetting,
             onNavigateToDebug = onNavigateToDebug
         )
 
-        // 日付(日本時間)
         Text(
             text = today,
             color = Ink,
@@ -119,7 +116,6 @@ fun HomeScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // 本数入力 ＆ 保存セクション
         CountSection(
             tempCount = uiState.tempCount,
             onIncrementTemp = onIncrementTemp,
@@ -129,9 +125,6 @@ fun HomeScreen(
     }
 }
 
-/**
- * 🧭 各機能画面へ遷移するナビルートバー
- */
 @Composable
 private fun NavigationHeader(
     onNavigateToHistory: () -> Unit,
@@ -310,15 +303,11 @@ private fun CountSection(
  * 1週間に2本以上吸った場合の重いペナルティ全画面ブロック。
  */
 @Composable
-fun HeavyPenaltyOverlay(weeklyTotal: Int, onDismiss: () -> Unit) {
-    var secondsLeft by remember { mutableIntStateOf(60) }
-    LaunchedEffect(Unit) {
-        while (secondsLeft > 0) {
-            delay(1000)
-            secondsLeft -= 1
-        }
-    }
-    val canClose = secondsLeft <= 0
+fun HeavyPenaltyOverlay(
+    remainingSeconds: Int,
+    onDismiss: () -> Unit
+) {
+    val canClose = remainingSeconds <= 0
 
     Column(
         modifier = Modifier
@@ -341,7 +330,7 @@ fun HeavyPenaltyOverlay(weeklyTotal: Int, onDismiss: () -> Unit) {
             textAlign = TextAlign.Center,
         )
         Text(
-            text = "今週の合計: ${weeklyTotal}本",
+            text = "重度ペナルティ中",
             color = Color(0xFFCBD0D6),
             fontSize = 14.sp,
             modifier = Modifier.padding(top = 12.dp),
@@ -356,9 +345,10 @@ fun HeavyPenaltyOverlay(weeklyTotal: Int, onDismiss: () -> Unit) {
             }
         } else {
             Text(
-                text = "あと${secondsLeft}秒は操作できません",
+                text = "あと${remainingSeconds}秒は操作できません",
                 color = Color(0xFF8A9099),
-                fontSize = 12.sp,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(top = 32.dp),
             )
         }

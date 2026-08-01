@@ -123,14 +123,14 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    // 🚨 自アプリ内でも重度ペナルティ時は画面遷移や操作を一切不可にする全画面ロック
+                    // 🚨 重度ペナルティ時は画面操作を完全ブロック
                     if (uiState.isHeavyPenaltyActive) {
                         LaunchedEffect(Unit) {
                             viewModel.triggerHeavyPenaltyLock()
                         }
                         HeavyPenaltyOverlay(
-                            weeklyTotal = uiState.weeklyTotal,
-                            onDismiss = { viewModel.refreshState() },
+                            remainingSeconds = uiState.remainingPenaltySeconds,
+                            onDismiss = { viewModel.clearHeavyPenaltyLock() },
                         )
                     }
                 }

@@ -28,6 +28,7 @@ data class AppData(
     val streakStartDate: String = LocalDate.now(ZoneId.of("Asia/Tokyo")).toString(),
     val isInitialized: Boolean = false,
     val heavyPenaltyLockUntil: Long = 0L, // 🚨 重度ペナルティのロック完了終了タイムスタンプ（ミリ秒）
+    val penaltyDismissedUntil: Long = 0L,  // 🚨 閉じた後に無駄なループ再発火を防ぐフラグ
 )
 
 private val JST: ZoneId = ZoneId.of("Asia/Tokyo")
@@ -73,13 +74,22 @@ class AppRepo(context: Context) {
     fun triggerHeavyPenaltyLock() {
         val data = loadData()
         val now = System.currentTimeMillis()
-        if (data.heavyPenaltyLockUntil < now) {
+        // 解除済み・クールダウン中でなく、ロック中でない場合のみ60秒をセット
+        if (data.heavyPenaltyLockUntil < now && data.penaltyDismissedUntil < now) {
             saveData(data.copy(heavyPenaltyLockUntil = now + 60_000L))
         }
     }
 
     fun isHeavyPenaltyActive(): Boolean {
-        return System.currentTimeMillis() < loadData().heavyPenaltyLockUntil
+        val data = loadData()
+        return System.currentTimeMillis() < data.heavyPenaltyLockUntil
+    }
+
+    fun clearHeavyPenaltyLock() {
+        val data = loadData()
+        val now = System.currentTimeMillis()
+        // 閉じた後は30分間のクールダウン（無制限再発火ループ防止）
+        saveData(data.copy(heavyPenaltyLockUntil = 0L, penaltyDismissedUntil = now + 1_800_000L))
     }
 
     fun getRemainingPenaltySeconds(): Int {

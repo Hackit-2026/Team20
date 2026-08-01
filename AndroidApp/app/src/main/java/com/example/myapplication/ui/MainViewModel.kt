@@ -17,8 +17,8 @@ data class UiState(
     val weeklyDailyAverage: Double = 0.0,
     val weightedAverage: Double = 0.0,
     val weightedPenaltyValue: Double = 0.0,
-    val isHeavyPenaltyActive: Boolean = false, // 🚨 重度ペナルティ中フラグ
-    val remainingPenaltySeconds: Int = 0, // 残り秒数
+    val isHeavyPenaltyActive: Boolean = false,
+    val remainingPenaltySeconds: Int = 0,
     val currentGoal: Int = 10,
     val calculatedNextGoal: Int = 10,
     val notifyHour: Int = 21,
@@ -48,7 +48,7 @@ class MainViewModel(private val repo: AppRepo) : ViewModel() {
                 weeklyDailyAverage = repo.getWeeklyDailyAverage(),
                 weightedAverage = repo.calculateWeightedAverage(),
                 weightedPenaltyValue = repo.calculateWeightedPenaltyValue(),
-                isHeavyPenaltyActive = repo.isHeavyPenaltyActive() || repo.calculateWeightedPenaltyValue() >= 5.0,
+                isHeavyPenaltyActive = repo.isHeavyPenaltyActive(),
                 remainingPenaltySeconds = repo.getRemainingPenaltySeconds(),
                 currentGoal = currentGoal,
                 calculatedNextGoal = repo.calculateNextGoal(1.5),
@@ -61,6 +61,11 @@ class MainViewModel(private val repo: AppRepo) : ViewModel() {
 
     fun triggerHeavyPenaltyLock() {
         repo.triggerHeavyPenaltyLock()
+        refreshState()
+    }
+
+    fun clearHeavyPenaltyLock() {
+        repo.clearHeavyPenaltyLock()
         refreshState()
     }
 
