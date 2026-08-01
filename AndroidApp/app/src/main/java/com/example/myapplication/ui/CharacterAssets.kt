@@ -23,7 +23,8 @@ import androidx.compose.ui.unit.dp
 import com.example.myapplication.R
 import com.example.myapplication.ui.theme.MyApplicationTheme
 
-// キャラシートのS0〜S20、21段階の実アセット画像
+// キャラシート(Code_Generated_Image.png)のS0〜S20、21段階をそのまま切り出したもの。
+// 吸った本数(0〜20本)がそのままインデックスに対応する。
 private val stageDrawables = listOf(
     R.drawable.char_stage_0, R.drawable.char_stage_1, R.drawable.char_stage_2,
     R.drawable.char_stage_3, R.drawable.char_stage_4, R.drawable.char_stage_5,
@@ -50,18 +51,18 @@ val stageColorNames = listOf(
 )
 
 /**
- * 鏡モチーフのフレーム ＋ グロー（発光）演出でキャラクターを描画する
+ * キャラを丸い「鏡」フレームの中に表示する。説教しないアプリ、ただ鏡を置くだけ、
+ * というコンセプトに合わせて、常に暗いスクリーンの上にキャラの色だけが浮かぶ見た目にしている。
  */
 @Composable
 fun CharacterView(stage: Int, modifier: Modifier = Modifier) {
-    val safeStage = stage.coerceIn(0, stageDrawables.lastIndex)
-    val glow by animateColorAsState(targetValue = stageGlow[safeStage], label = "stageGlow")
+    val glow by animateColorAsState(targetValue = stageGlow[stage], label = "stageGlow")
 
     Box(
         modifier = modifier.aspectRatio(1f),
         contentAlignment = Alignment.Center,
     ) {
-        // 背景ににじむグロー
+        // 背景ににじむ、ステージ色のアンビエントグロー
         Box(
             modifier = Modifier
                 .fillMaxSize(0.85f)
@@ -79,18 +80,13 @@ fun CharacterView(stage: Int, modifier: Modifier = Modifier) {
             contentAlignment = Alignment.Center,
         ) {
             Image(
-                painter = painterResource(stageDrawables[safeStage]),
-                contentDescription = "キャラクター(S$safeStage ${stageColorNames[safeStage]})",
+                painter = painterResource(stageDrawables[stage]),
+                contentDescription = "キャラクター(S$stage ${stageColorNames[stage]})",
                 contentScale = ContentScale.Fit,
                 modifier = Modifier.fillMaxSize(0.66f),
             )
         }
     }
-}
-
-@Composable
-fun CharacterView(stageIndex: Int, modifier: Modifier = Modifier, dummy: Boolean = false) {
-    CharacterView(stage = stageIndex, modifier = modifier)
 }
 
 @Preview(showBackground = true)

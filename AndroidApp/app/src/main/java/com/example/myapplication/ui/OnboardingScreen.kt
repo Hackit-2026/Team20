@@ -28,7 +28,7 @@ fun OnboardingScreen(
     modifier: Modifier = Modifier,
 ) {
     var selectedDays by remember { mutableIntStateOf(7) }
-    var dailyGoal by remember { mutableIntStateOf(10) }
+    var dailyGoal by remember { mutableIntStateOf(0) }
 
     Column(
         modifier = modifier
@@ -58,7 +58,7 @@ fun OnboardingScreen(
         ) {
             Button(onClick = { if (dailyGoal > 0) dailyGoal-- }) { Text("-") }
             Text("${dailyGoal}本", style = MaterialTheme.typography.headlineSmall)
-            Button(onClick = { if (dailyGoal < 30) dailyGoal++ }) { Text("+") }
+            Button(onClick = { if (dailyGoal < 10) dailyGoal++ }) { Text("+") }
         }
 
         Button(

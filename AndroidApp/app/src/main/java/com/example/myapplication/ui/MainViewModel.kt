@@ -97,7 +97,7 @@ class MainViewModel(private val repo: AppRepo) : ViewModel() {
         refreshState()
     }
 
-    fun saveSettings(days: Int, goal: Int, notifyHour: Int, notifyMinute: Int) {
+    fun saveSettings(days: Int, goal: Int, notifyHour: Int = 21, notifyMinute: Int = 0) {
         val currentSettings = repo.getAppSettings()
         val newSettings = currentSettings.copy(
             days = days,
