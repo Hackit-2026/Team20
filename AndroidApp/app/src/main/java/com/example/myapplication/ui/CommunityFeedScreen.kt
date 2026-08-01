@@ -33,6 +33,11 @@ fun CommunityFeedScreen(
                     TextButton(onClick = onBack) {
                         Text("← 戻る")
                     }
+                },
+                actions = {
+                    IconButton(onClick = { viewModel.syncFeedFromServer() }) {
+                        Text("🔄", fontSize = 18.sp)
+                    }
                 }
             )
         }
@@ -43,6 +48,24 @@ fun CommunityFeedScreen(
                 .padding(innerPadding)
                 .padding(16.dp)
         ) {
+            // リロード促進バナー
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "💡 投稿後、右上の「🔄」を押すと返信が届きます",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                TextButton(onClick = { viewModel.syncFeedFromServer() }) {
+                    Text("🔄 リロード")
+                }
+            }
+
             // 投稿フォーム
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -68,23 +91,16 @@ fun CommunityFeedScreen(
                         horizontalArrangement = Arrangement.End,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        if (uiState.isPosting) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp).padding(end = 8.dp),
-                                strokeWidth = 2.dp
-                            )
-                            Text("サーバー生成中...", style = MaterialTheme.typography.labelMedium)
-                        } else {
-                            Button(
-                                onClick = {
-                                    if (postText.isNotBlank()) {
-                                        viewModel.postToTimeline(postText)
-                                        postText = ""
-                                    }
+                        Button(
+                            onClick = {
+                                if (postText.isNotBlank()) {
+                                    viewModel.postToTimeline(postText)
+                                    postText = ""
                                 }
-                            ) {
-                                Text("投稿する")
-                            }
+                            },
+                            enabled = !uiState.isPosting && postText.isNotBlank()
+                        ) {
+                            Text(if (uiState.isPosting) "送信中..." else "投稿する (即時反映)")
                         }
                     }
                 }
@@ -113,6 +129,8 @@ fun CommunityFeedScreen(
 
 @Composable
 fun PostCard(post: TimelinePost) {
+    val comments = post.getCommentsList()
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
@@ -144,9 +162,17 @@ fun PostCard(post: TimelinePost) {
                 modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
             )
 
-            // メンバーのコメント一覧
-            post.getCommentsList().forEach { comment ->
-                MemberCommentRow(comment = comment)
+            if (comments.isEmpty()) {
+                Text(
+                    text = "⏳ 専属メンバーが熱いコメントを作成中... (「🔄 リロード」を押して取得)",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            } else {
+                comments.forEach { comment ->
+                    MemberCommentRow(comment = comment)
+                }
             }
         }
     }
