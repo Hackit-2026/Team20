@@ -45,6 +45,7 @@ class MainViewModel(private val repo: AppRepo) : ViewModel() {
         viewModelScope.launch {
             val serverFeed = repo.fetchFeedFromServer()
             _uiState.update { it.copy(feed = serverFeed) }
+            refreshState()
         }
     }
 
@@ -120,7 +121,8 @@ class MainViewModel(private val repo: AppRepo) : ViewModel() {
     }
 
     /**
-     * 🌐 サーバー (FastAPI + LM Studio) へ投稿を非同期送信し、4人の短い返信コメントを取得
+     * 🌐 投稿受信時: 即座（0.05秒）にサーバーへPOSTしローカルUI反映。
+     * リロードボタンを押すことで、サーバー側で非同期生成されたコメントが読み込まれる。
      */
     fun postToTimeline(text: String) {
         viewModelScope.launch {

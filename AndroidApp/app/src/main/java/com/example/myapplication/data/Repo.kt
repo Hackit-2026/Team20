@@ -40,7 +40,7 @@ data class TimelinePost(
     val text: String = "",
     val timestamp: String = "",
     val memberComments: List<MemberComment> = emptyList(),
-    val comments: List<MemberComment> = emptyList() // サーバー側キー名互換用
+    val comments: List<MemberComment> = emptyList()
 ) {
     fun getCommentsList(): List<MemberComment> {
         return if (comments.isNotEmpty()) comments else memberComments
@@ -207,11 +207,12 @@ class AppRepo(context: Context) {
 
         for (urlString in candidateUrls) {
             try {
+                Log.d("AppRepo", "Fetching feed from: $urlString")
                 val url = URL(urlString)
                 val conn = url.openConnection() as HttpURLConnection
                 conn.requestMethod = "GET"
-                conn.connectTimeout = 5000
-                conn.readTimeout = 10000
+                conn.connectTimeout = 3000
+                conn.readTimeout = 5000
 
                 if (conn.responseCode == 200) {
                     val responseText = conn.inputStream.bufferedReader().use { it.readText() }
@@ -225,6 +226,7 @@ class AppRepo(context: Context) {
                     }
                     val data = loadData()
                     saveData(data.copy(feed = fixedPosts))
+                    Log.d("AppRepo", "Successfully fetched & saved ${fixedPosts.size} posts with comments")
                     return@withContext fixedPosts
                 }
             } catch (e: Exception) {
@@ -236,7 +238,6 @@ class AppRepo(context: Context) {
 
     /**
      * 🌐 投稿受信時: 即座（0.05秒）にサーバーへPOSTし、ローカルフィードへ即反映。
-     * コメントはサーバー側バックグラウンドタスクでSQL生成され、リロード時に一括表示される。
      */
     suspend fun postToTimelineServer(text: String): TimelinePost? = withContext(Dispatchers.IO) {
         val configuredUrl = getServerUrl().trimEnd('/')
@@ -257,8 +258,8 @@ class AppRepo(context: Context) {
                 conn.setRequestProperty("Content-Type", "application/json; utf-8")
                 conn.setRequestProperty("Accept", "application/json")
                 conn.doOutput = true
-                conn.connectTimeout = 5000
-                conn.readTimeout = 5000 // 即時応答
+                conn.connectTimeout = 3000
+                conn.readTimeout = 5000
 
                 val reqBody = json.encodeToString(CreatePostReq(author = "あなた", text = text))
                 conn.outputStream.use { os ->
