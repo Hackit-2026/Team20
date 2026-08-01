@@ -19,10 +19,13 @@ fun AppNavigation(viewModel: MainViewModel) {
     val navController = rememberNavController()
     val uiState by viewModel.uiState.collectAsState()
 
-    // 設定が未完了の場合はオンボーディングから開始
-    val startDestination = if (uiState.isInitialized) "home" else "onboarding"
+    // 設定が未完了の場合は「+」の起動画面から開始し、そこからオンボーディングへ進む
+    val startDestination = if (uiState.isInitialized) "home" else "start"
 
     NavHost(navController = navController, startDestination = startDestination) {
+        composable("start") {
+            StartScreen(onStartClick = { navController.navigate("onboarding") })
+        }
         composable("onboarding") {
             val context = LocalContext.current
             OnboardingScreen(
