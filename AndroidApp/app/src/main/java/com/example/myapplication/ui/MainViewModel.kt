@@ -74,4 +74,14 @@ class MainViewModel(private val repo: AppRepo) : ViewModel() {
             it.copy(currentLine = stage.getRandomMessage())
         }
     }
+
+    fun resetData() {
+        repo.resetAllData()
+        refreshState()
+    }
+
+    fun injectDummyData() {
+        repo.addDummyData()
+        refreshState()
+    }
 }

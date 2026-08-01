@@ -24,5 +24,14 @@ enum class CharacterStage(
                 else -> STAGE_0
             }
         }
+
+        fun fromAverage(avg: Float): CharacterStage {
+            return when {
+                avg >= 10f -> STAGE_3
+                avg >= 5f -> STAGE_2
+                avg >= 2f -> STAGE_1
+                else -> STAGE_0
+            }
+        }
     }
 }

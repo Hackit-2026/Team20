@@ -35,7 +35,9 @@ fun AppNavigation(viewModel: MainViewModel) {
                 dailyGoal = uiState.settings.dailyGoal,
                 remainingDays = stats?.daysLeft ?: uiState.settings.days,
                 onIncrement = { viewModel.incrementCount() },
-                onDecrement = { viewModel.decrementCount() }
+                onDecrement = { viewModel.decrementCount() },
+                onNavigateToCalendar = { navController.navigate("calendar") },
+                onNavigateToResult = { navController.navigate("result") }
             )
         }
         composable("calendar") {

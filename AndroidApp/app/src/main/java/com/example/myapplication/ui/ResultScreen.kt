@@ -8,11 +8,14 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.myapplication.ui.theme.MyApplicationTheme
+
+import com.example.myapplication.logic.CharacterStage
 
 @Composable
 fun ResultScreen(
@@ -22,7 +25,7 @@ fun ResultScreen(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val endingStage = stageOfAverage(averagePerDay)
+    val endingStage = remember(averagePerDay) { CharacterStage.fromAverage(averagePerDay.toFloat()) }
 
     Column(
         modifier = modifier
@@ -32,10 +35,10 @@ fun ResultScreen(
     ) {
         Text("この期間のあなたの姿", style = MaterialTheme.typography.titleMedium)
 
-        CharacterView(stage = endingStage, modifier = Modifier.fillMaxWidth().padding(top = 16.dp))
+        CharacterView(stage = endingStage.ordinal, modifier = Modifier.fillMaxWidth().padding(top = 16.dp))
 
         Text(
-            text = stageName[endingStage],
+            text = endingStage.label,
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.padding(top = 16.dp),
         )
@@ -54,13 +57,6 @@ fun ResultScreen(
             Text("もう一度挑戦する")
         }
     }
-}
-
-private fun stageOfAverage(average: Double): Int = when {
-    average >= 10 -> 3
-    average >= 5 -> 2
-    average >= 2 -> 1
-    else -> 0
 }
 
 @Preview(showBackground = true)
