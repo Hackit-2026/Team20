@@ -43,7 +43,8 @@ data class TimelinePost(
     val comments: List<MemberComment> = emptyList()
 ) {
     fun getCommentsList(): List<MemberComment> {
-        return if (comments.isNotEmpty()) comments else memberComments
+        val list = if (comments.isNotEmpty()) comments else memberComments
+        return list.filter { it.comment.isNotBlank() }
     }
 }
 
@@ -194,13 +195,14 @@ class AppRepo(context: Context) {
     fun getFeed(): List<TimelinePost> = loadData().feed
 
     /**
-     * 🌐 サーバー (GET /api/feed) から最新のタイムラインとSQL生成済コメントを取得
+     * 🌐 サーバー (GET /api/feed) から最新のタイムラインとSQL生成済コメントを取得し、完全上書き保存
      */
     suspend fun fetchFeedFromServer(): List<TimelinePost> = withContext(Dispatchers.IO) {
-        val configuredUrl = getServerUrl().trimEnd('/')
+        val rawConfigured = getServerUrl().trimEnd('/')
         val candidateUrls = listOf(
-            "$configuredUrl/api/feed",
+            "$rawConfigured/api/feed",
             "http://192.168.25.42:8000/api/feed",
+            "http://192.168.16.31:8000/api/feed",
             "http://10.0.2.2:8000/api/feed",
             "http://localhost:8000/api/feed"
         ).distinct()
@@ -211,8 +213,8 @@ class AppRepo(context: Context) {
                 val url = URL(urlString)
                 val conn = url.openConnection() as HttpURLConnection
                 conn.requestMethod = "GET"
-                conn.connectTimeout = 3000
-                conn.readTimeout = 5000
+                conn.connectTimeout = 2500
+                conn.readTimeout = 4000
 
                 if (conn.responseCode == 200) {
                     val responseText = conn.inputStream.bufferedReader().use { it.readText() }
@@ -224,9 +226,11 @@ class AppRepo(context: Context) {
                             comments = validComments
                         )
                     }
+                    
+                    // 🚨 取得した最新フィードでローカルDBを完全上書き（旧空データの消去）
                     val data = loadData()
                     saveData(data.copy(feed = fixedPosts))
-                    Log.d("AppRepo", "Successfully fetched & saved ${fixedPosts.size} posts with comments")
+                    Log.d("AppRepo", "✅ Successfully fetched & overwrote ${fixedPosts.size} posts with comments from $urlString")
                     return@withContext fixedPosts
                 }
             } catch (e: Exception) {
@@ -240,11 +244,11 @@ class AppRepo(context: Context) {
      * 🌐 投稿受信時: 即座（0.05秒）にサーバーへPOSTし、ローカルフィードへ即反映。
      */
     suspend fun postToTimelineServer(text: String): TimelinePost? = withContext(Dispatchers.IO) {
-        val configuredUrl = getServerUrl().trimEnd('/')
-        
+        val rawConfigured = getServerUrl().trimEnd('/')
         val candidateUrls = listOf(
-            "$configuredUrl/api/posts",
+            "$rawConfigured/api/posts",
             "http://192.168.25.42:8000/api/posts",
+            "http://192.168.16.31:8000/api/posts",
             "http://10.0.2.2:8000/api/posts",
             "http://localhost:8000/api/posts"
         ).distinct()
@@ -258,8 +262,8 @@ class AppRepo(context: Context) {
                 conn.setRequestProperty("Content-Type", "application/json; utf-8")
                 conn.setRequestProperty("Accept", "application/json")
                 conn.doOutput = true
-                conn.connectTimeout = 3000
-                conn.readTimeout = 5000
+                conn.connectTimeout = 2500
+                conn.readTimeout = 4000
 
                 val reqBody = json.encodeToString(CreatePostReq(author = "あなた", text = text))
                 conn.outputStream.use { os ->
