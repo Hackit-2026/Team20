@@ -36,7 +36,6 @@ class MainActivity : ComponentActivity() {
         Reminder.createChannel(this)
         requestNotificationPermission()
         enableEdgeToEdge()
-
         setContent {
             MyApplicationTheme {
                 AppNavigation(viewModel)

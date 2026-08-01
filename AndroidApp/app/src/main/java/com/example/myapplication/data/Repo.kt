@@ -86,7 +86,8 @@ class AppRepo(context: Context) {
         val totalCount = data.counts.values.sum()
         val averageDaily = if (data.counts.isEmpty()) 0f else totalCount.toFloat() / data.counts.size
         val targetTotal = data.settings.dailyGoal * data.settings.days
-        val isTargetAchieved = totalCount <= targetTotal
+        // 目標本数を超えたら「達成（育成成功）」とする
+        val isTargetAchieved = totalCount >= targetTotal
 
         return ChallengeStats(
             daysLeft = daysLeft,
