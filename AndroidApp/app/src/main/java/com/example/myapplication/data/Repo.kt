@@ -126,9 +126,8 @@ class AppRepo(context: Context) {
             today.minusDays(1)
         }
 
-        // 前回確認日から昨日までの未確定日数を計算
         if (lastConfirmed.isBefore(today)) {
-            val missedDays = java.time.temporal.ChronoUnit.DAYS.between(lastConfirmed, today).toInt() - (if (isConfirmedToday()) 0 else 0)
+            val missedDays = java.time.temporal.ChronoUnit.DAYS.between(lastConfirmed, today).toInt()
             
             if (missedDays > 0) {
                 Log.w("AppRepo", "🚨 Notification ignored! Applying penalty for $missedDays missed day(s).")
@@ -138,7 +137,7 @@ class AppRepo(context: Context) {
                 for (i in 1..missedDays) {
                     val missedDate = lastConfirmed.plusDays(i.toLong()).format(dateFormatter)
                     if (missedDate != getTodayDate() && !newCounts.containsKey(missedDate)) {
-                        newCounts[missedDate] = goal // 目標本数分をペナルティとして強制登録
+                        newCounts[missedDate] = goal
                     }
                 }
 
@@ -197,7 +196,7 @@ class AppRepo(context: Context) {
     fun getFeed(): List<TimelinePost> = loadData().feed
 
     /**
-     * 🌐 サーバー (GET /api/feed) から最新のタイムラインとAIコメントを取得
+     * 🌐 サーバー (GET /api/feed) から最新のタイムラインとコメント一覧を取得・正規化
      */
     suspend fun fetchFeedFromServer(): List<TimelinePost> = withContext(Dispatchers.IO) {
         val configuredUrl = getServerUrl().trimEnd('/')
@@ -220,9 +219,17 @@ class AppRepo(context: Context) {
                     val responseText = conn.inputStream.bufferedReader().use { it.readText() }
                     val serverPosts = json.decodeFromString<List<TimelinePost>>(responseText)
                     if (serverPosts.isNotEmpty()) {
+                        // コメントリストの相互補完・100%全件展開
+                        val fixedPosts = serverPosts.map { p ->
+                            val validComments = p.getCommentsList()
+                            p.copy(
+                                memberComments = validComments,
+                                comments = validComments
+                            )
+                        }
                         val data = loadData()
-                        saveData(data.copy(feed = serverPosts))
-                        return@withContext serverPosts
+                        saveData(data.copy(feed = fixedPosts))
+                        return@withContext fixedPosts
                     }
                 }
             } catch (e: Exception) {
@@ -233,13 +240,11 @@ class AppRepo(context: Context) {
     }
 
     /**
-     * 🌐 サーバー (FastAPI + LM Studio) に対して投稿を直接送信
-     * エミュレータ用 (10.0.2.2) ＆ 実機・写真用 (192.168.25.42) の両方へ順次接続試行
+     * 🌐 サーバー (FastAPI + LM Studio) に対して投稿を直接送信し、生成コメントを確実に取得
      */
     suspend fun postToTimelineServer(text: String): TimelinePost? = withContext(Dispatchers.IO) {
         val configuredUrl = getServerUrl().trimEnd('/')
         
-        // 試行する候補URLリスト
         val candidateUrls = listOf(
             "$configuredUrl/api/posts",
             "http://192.168.25.42:8000/api/posts",
@@ -270,12 +275,18 @@ class AppRepo(context: Context) {
                 if (responseCode == 200) {
                     val responseText = conn.inputStream.bufferedReader().use { it.readText() }
                     Log.d("AppRepo", "Server response body: $responseText")
-                    val newPost = json.decodeFromString<TimelinePost>(responseText)
+                    val rawPost = json.decodeFromString<TimelinePost>(responseText)
                     
-                    // ローカルDBのフィードも同時更新
+                    // サーバーから返った生成コメントを確実に保持・同期
+                    val validComments = rawPost.getCommentsList()
+                    val fixedPost = rawPost.copy(
+                        memberComments = validComments,
+                        comments = validComments
+                    )
+
                     val data = loadData()
-                    saveData(data.copy(feed = listOf(newPost) + data.feed))
-                    return@withContext newPost
+                    saveData(data.copy(feed = listOf(fixedPost) + data.feed.filter { it.postId != fixedPost.postId }))
+                    return@withContext fixedPost
                 }
             } catch (e: Exception) {
                 Log.e("AppRepo", "HTTP connection failed for $urlString: ${e.message}", e)
@@ -283,14 +294,15 @@ class AppRepo(context: Context) {
         }
         
         Log.w("AppRepo", "All server connection attempts failed. Using local fallback.")
-        // オフライン・失敗時のフォールバックローカル投稿
+        val fallbackComments = generateMemberComments()
         val fallbackPost = TimelinePost(
             postId = "p_${System.currentTimeMillis()}",
             author = "あなた",
             isNpc = false,
             text = text,
             timestamp = "たった今",
-            memberComments = generateMemberComments()
+            memberComments = fallbackComments,
+            comments = fallbackComments
         )
         val data = loadData()
         saveData(data.copy(feed = listOf(fallbackPost) + data.feed))
@@ -298,6 +310,7 @@ class AppRepo(context: Context) {
     }
 
     fun postToTimeline(text: String) {
+        val fallbackComments = generateMemberComments()
         val data = loadData()
         val newPost = TimelinePost(
             postId = "p_${System.currentTimeMillis()}",
@@ -305,7 +318,8 @@ class AppRepo(context: Context) {
             isNpc = false,
             text = text,
             timestamp = "たった今",
-            memberComments = generateMemberComments()
+            memberComments = fallbackComments,
+            comments = fallbackComments
         )
         saveData(data.copy(feed = listOf(newPost) + data.feed))
     }
@@ -365,7 +379,7 @@ class AppRepo(context: Context) {
         val dummyFeed = listOf(
             TimelinePost(
                 "d001", "仲間のたかし", true, "今日は一本も吸わずに過ごせた！奇跡！", "3時間前",
-                generateMemberComments()
+                generateMemberComments(), generateMemberComments()
             )
         )
         

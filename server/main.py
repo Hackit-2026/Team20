@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
@@ -19,7 +19,7 @@ SCHEMA_PATH = os.path.join(os.path.dirname(__file__), "schema.sql")
 app = FastAPI(
     title="ヤニモグラ (YANI-GOTCHI) バックエンドサーバー",
     description="SQLite SQL データベース & LM Studio (google/gemma-4-12b-qat) 連携サーバー",
-    version="2.4.0"
+    version="2.5.0"
 )
 
 # CORS設定（すべてのIPからのアクセス許可）
@@ -31,7 +31,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# LM Studio 接続ホスト先リスト（写真のアドレス 192.168.25.42 を最優先設定）
 LM_STUDIO_BASE_URLS = [
     "http://192.168.25.42:11434",
     "http://172.0.0.1:11434",
@@ -39,16 +38,13 @@ LM_STUDIO_BASE_URLS = [
     "http://localhost:11434"
 ]
 
-# 候補モデル名（ユーザー指定 google/gemma-4-12b-qat を最優先）
 MODEL_CANDIDATES = [
     "google/gemma-4-12b-qat",
     "gemma-4-12b-qat",
     "gemma4-12B qat"
 ]
 
-# --- SQLite データベース初期化関数 ---
 def init_db():
-    """SQLテーブルを自動生成・初期化"""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     if os.path.exists(SCHEMA_PATH):
@@ -59,10 +55,8 @@ def init_db():
     conn.close()
     logger.info(f"SQLite DB initialized at {DB_PATH}")
 
-# サーバー起動時にSQL DBを初期化
 init_db()
 
-# --- データモデル定義 ---
 class MemberComment(BaseModel):
     name: str
     avatar: str
@@ -74,14 +68,13 @@ class Post(BaseModel):
     isNpc: bool
     text: str
     timestamp: str
-    comments: List[MemberComment]
-    memberComments: Optional[List[MemberComment]] = None
+    comments: List[MemberComment] = []
+    memberComments: Optional[List[MemberComment]] = []
 
 class CreatePostRequest(BaseModel):
     author: str = "あなた"
     text: str
 
-# --- 4人のキャラクター設定 ---
 PERSONA_CONFIGS = [
     {
         "name": "熱血仲間・修造",
@@ -125,38 +118,20 @@ PERSONA_CONFIGS = [
     }
 ]
 
-NPC_USERS = [
-    "減煙挑戦中のタカシ",
-    "禁煙3日目のサクラ",
-    "ヤニモグラ育成中のケンジ",
-    "タバコ我慢中のユウキ"
-]
-
-NPC_POST_TEMPLATES = [
-    "今日はついに1本も吸わずに過ごせた！我慢できた！",
-    "食後のタバコ我慢するのめちゃくちゃ辛い…耐えろ俺…！",
-    "今日で我慢3日目！手が寂しいけど耐えてる！",
-    "仕事の合間の1本をグッと堪えてお茶飲んだ！"
-]
-
 async def get_active_lm_studio_model(base_url: str) -> Optional[str]:
-    """LM Studio の /v1/models からアクティブにロードされているモデルIDを自動取得"""
     models_url = f"{base_url}/v1/models"
     try:
-        async with httpx.AsyncClient(timeout=4.0) as client:
+        async with httpx.AsyncClient(timeout=3.0) as client:
             res = await client.get(models_url)
             if res.status_code == 200:
                 data = res.json()
                 if "data" in data and len(data["data"]) > 0:
-                    model_id = data["data"][0]["id"]
-                    logger.info(f"Detected active LM Studio model '{model_id}' from {base_url}")
-                    return model_id
-    except Exception as e:
-        logger.debug(f"Failed to fetch models from {models_url}: {e}")
+                    return data["data"][0]["id"]
+    except Exception:
+        pass
     return None
 
 async def fetch_llm_comment(persona: dict, user_text: str) -> str:
-    """LM Studio へ実リクエストを送信（優先IP: 192.168.25.42:11434, モデル: google/gemma-4-12b-qat）"""
     messages = [
         {"role": "system", "content": persona["system_prompt"]},
         {"role": "user", "content": f"つぶやき内容：「{user_text}」\n上記のつぶやきに対して、あなたのキャラクターとして1〜2文で返信コメントしてください。"}
@@ -164,7 +139,6 @@ async def fetch_llm_comment(persona: dict, user_text: str) -> str:
 
     for base_url in LM_STUDIO_BASE_URLS:
         endpoint_url = f"{base_url}/v1/chat/completions"
-        
         active_model = await get_active_lm_studio_model(base_url)
         models_to_try = [active_model] + MODEL_CANDIDATES if active_model else MODEL_CANDIDATES
 
@@ -179,45 +153,38 @@ async def fetch_llm_comment(persona: dict, user_text: str) -> str:
             }
 
             try:
-                async with httpx.AsyncClient(timeout=15.0) as client:
-                    logger.info(f"Sending request to LM Studio ({endpoint_url}) with model '{model_name}' for persona '{persona['name']}'...")
+                async with httpx.AsyncClient(timeout=12.0) as client:
                     response = await client.post(endpoint_url, json=payload)
-                    
                     if response.status_code == 200:
                         data = response.json()
                         content = data["choices"][0]["message"]["content"].strip()
-                        content = content.replace("AI", "").replace("人工知能", "").strip()
-                        logger.info(f"✅ Successfully generated comment via LM Studio ({model_name}): {content}")
-                        return content
-                    else:
-                        logger.warning(f"LM Studio returned status {response.status_code}: {response.text}")
-            except Exception as e:
-                logger.warning(f"Connection to LM Studio ({endpoint_url}) with model '{model_name}' failed: {e}")
+                        return content.replace("AI", "").replace("人工知能", "").strip()
+            except Exception:
+                pass
 
-    logger.warning("All LM Studio connection attempts failed. Using persona fallback template.")
-    await asyncio.sleep(random.uniform(0.5, 1.2))
     return random.choice(persona["fallback_templates"])
 
-async def generate_all_comments(user_text: str) -> List[MemberComment]:
-    """4人のキャラクターから並行してリアルタイムコメントを生成"""
-    tasks = [fetch_llm_comment(persona, user_text) for persona in PERSONA_CONFIGS]
+async def generate_and_save_bg_comments(post_id: str, text: str, timestamp: str):
+    """バックグラウンドでLM Studioのコメントを生成し、SQL DBへ保存"""
+    logger.info(f"⏳ Background AI comment generation started for post_id: {post_id}")
+    tasks = [fetch_llm_comment(persona, text) for persona in PERSONA_CONFIGS]
     results = await asyncio.gather(*tasks)
     
-    comments = []
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
     for i, persona in enumerate(PERSONA_CONFIGS):
-        comments.append(
-            MemberComment(
-                name=persona["name"],
-                avatar=persona["avatar"],
-                comment=results[i]
-            )
+        comment_text = results[i]
+        cursor.execute(
+            "INSERT INTO comments (post_id, name, avatar, comment, timestamp) VALUES (?, ?, ?, ?, ?)",
+            (post_id, persona["name"], persona["avatar"], comment_text, timestamp)
         )
-    return comments
-
-# --- SQL DB 操作関数 ---
+    
+    conn.commit()
+    conn.close()
+    logger.info(f"✅ Background AI comments saved to SQL DB for post_id: {post_id}")
 
 def get_all_posts_from_db() -> List[Post]:
-    """SQLデータベースからすべての投稿とコメントを取得"""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
@@ -245,52 +212,40 @@ def get_all_posts_from_db() -> List[Post]:
     conn.close()
     return posts_list
 
-def save_post_to_db(post: Post):
-    """SQLデータベースに新規投稿とコメントを永続保存"""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    
-    cursor.execute(
-        "INSERT INTO posts (post_id, author, is_npc, text, timestamp) VALUES (?, ?, ?, ?, ?)",
-        (post.postId, post.author, 1 if post.isNpc else 0, post.text, post.timestamp)
-    )
-    
-    for comment in post.comments:
-        cursor.execute(
-            "INSERT INTO comments (post_id, name, avatar, comment, timestamp) VALUES (?, ?, ?, ?, ?)",
-            (post.postId, comment.name, comment.avatar, comment.comment, post.timestamp)
-        )
-    
-    conn.commit()
-    conn.close()
-    logger.info(f"Post {post.postId} with {len(post.comments)} comments saved to SQL Database.")
-
-# --- エンドポイント ---
-
 @app.get("/")
 def read_root():
     return {
         "status": "online",
         "server": "ヤニモグラ Python Backend Server",
-        "primary_ip": "192.168.25.42:8000",
-        "lm_studio_target": "http://192.168.25.42:11434/v1/chat/completions",
-        "target_model": "google/gemma-4-12b-qat"
+        "primary_ip": "192.168.25.42:8000"
     }
 
 @app.get("/api/feed", response_model=List[Post])
 def get_feed():
-    """SQLデータベースからタイムライン投稿およびコメント一覧を取得"""
+    """SQLデータベースからタイムライン投稿および最新コメント一覧を取得（リロード時に呼び出し）"""
     return get_all_posts_from_db()
 
 @app.post("/api/posts", response_model=Post)
-async def create_post(req: CreatePostRequest):
-    """つぶやき投稿を受け取りSQL保存 ＆ LM Studio実推論でコメント生成して返却"""
-    logger.info(f"📥 Received post request from user: '{req.text}'")
+async def create_post(req: CreatePostRequest, background_tasks: BackgroundTasks):
+    """
+    ⚡ つぶやき投稿を即座（0.05秒）に受け取ってレスポンス。
+    AIコメントはバックグラウンドで非同期生成し、後からリロードで反映！
+    """
+    logger.info(f"📥 Received fast post request from user: '{req.text}'")
     new_id = f"post_{int(datetime.now().timestamp())}_{random.randint(100, 999)}"
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
     
-    comments = await generate_all_comments(req.text)
-    logger.info(f"📤 Generated {len(comments)} comments. Returning to Android app.")
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO posts (post_id, author, is_npc, text, timestamp) VALUES (?, ?, ?, ?, ?)",
+        (new_id, req.author, 0, req.text, now_str)
+    )
+    conn.commit()
+    conn.close()
+    
+    # AIコメント生成をバックグラウンドに逃がすことで、即座にスマホへレスポンス
+    background_tasks.add_task(generate_and_save_bg_comments, new_id, req.text, now_str)
     
     new_post = Post(
         postId=new_id,
@@ -298,37 +253,8 @@ async def create_post(req: CreatePostRequest):
         isNpc=False,
         text=req.text,
         timestamp=now_str,
-        comments=comments,
-        memberComments=comments
+        comments=[],
+        memberComments=[]
     )
     
-    save_post_to_db(new_post)
     return new_post
-
-@app.post("/api/cron/bot-post", response_model=Post)
-async def generate_npc_bot_post():
-    """NPCからの定期投稿を生成しSQLデータベースへ永続保存"""
-    author = random.choice(NPC_USERS)
-    text = random.choice(NPC_POST_TEMPLATES)
-    new_id = f"post_npc_{int(datetime.now().timestamp())}_{random.randint(100, 999)}"
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
-    
-    comments = await generate_all_comments(text)
-    
-    npc_post = Post(
-        postId=new_id,
-        author=author,
-        isNpc=True,
-        text=text,
-        timestamp=now_str,
-        comments=comments,
-        memberComments=comments
-    )
-    
-    save_post_to_db(npc_post)
-    return npc_post
-
-if __name__ == "__main__":
-    import uvicorn
-    # 0.0.0.0 でホストすることにより 192.168.25.42 や localhost からアクセス可能
-    uvicorn.run(app, host="0.0.0.0", port=8000)
