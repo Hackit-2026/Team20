@@ -1,0 +1,10 @@
+.gradle/
+.kotlin/
+build/
+app/build/
+*.apk
+*.aar
+__pycache__/
+*.pyc
+.idea/
+*.iml

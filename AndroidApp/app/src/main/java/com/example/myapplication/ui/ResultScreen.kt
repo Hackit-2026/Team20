@@ -15,8 +15,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.myapplication.ui.theme.MyApplicationTheme
 
-import com.example.myapplication.logic.CharacterStage
-
 @Composable
 fun ResultScreen(
     targetTotal: Int,
@@ -25,7 +23,7 @@ fun ResultScreen(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val endingStage = remember(averagePerDay) { CharacterStage.fromAverage(averagePerDay.toFloat()) }
+    val endingStage = remember(averagePerDay) { averagePerDay.toInt().coerceIn(0, 20) }
 
     Column(
         modifier = modifier

@@ -180,3 +180,28 @@ Day3 AM
 ホーム画面ウィジェットに今日のキャラ
 リザルトのSNSシェア画像生成
 
+
+---
+
+## 10. 開発進捗ステータス (Progress Status Log)
+
+### 📊 全体進捗サマリー
+- **担当 A (コア & データ / Git管理)**: 🎉 **全機能統合・動作確認完了 (100%)** — コアロジック、UI画面群、通知機能の引き込み・動作確認完了。
+- **担当 B (画面 & キャラ)**: 🎉 **主要画面統合完了 (100%)** — HomeScreen, OnboardingScreen, ResultScreen, CalendarScreen 統合完了。
+- **担当 C (通知 & 発表)**: 🎉 **通知機能統合完了 (100%)** — Reminder, NotificationManager, 権限リクエスト統合完了。
+
+---
+
+### 📝 コンポーネント別・機能別 実績ログ
+
+| コンポーネント / 機能 | ステータス | 担当 | 担当ファイル / 成果物 | 備考・検証結果 |
+| :--- | :---: | :---: | :--- | :--- |
+| **依存関係セットアップ** | ✅ 完了 | 担当 A | `libs.versions.toml`, `build.gradle.kts` | Navigation Compose, ViewModel, Serialization 追加済み |
+| **ステージ判定ロジック** | ✅ 完了 | 担当 A | `logic/Stage.kt` | 0本:😊, 2本〜:😮‍💨, 5本〜:😵, 10本〜:👹 判定 |
+| **データ保存・統計計算** | ✅ 完了 | 担当 A | `data/Repo.kt` | SharedPreferences + JSONによる永続化、カウント更新、期間集計 |
+| **ViewModel / 状態管理** | ✅ 完了 | 担当 A | `ui/MainViewModel.kt` | StateFlowによる `UiState` 管理、UI用操作メソッド |
+| **ナビゲーション統合** | ✅ 完了 | 担当 A | `ui/AppNavigation.kt` | Onboarding, Home, Calendar, Result 4画面の遷移コールバック完全接続 |
+| **UI画面群マージ** | ✅ 完了 | 担当 B / A | `ui/` ディレクトリ各画面 | `b-screen-character` から安全に引き込み・統合 |
+| **通知機能・権限マージ** | ✅ 完了 | 担当 C / A | `notify/`, `MainActivity.kt` | `feature/notification-reminder` から引き込み、権限リクエスト実装 |
+| **ビルド＆動作検証** | ✅ 完了 | 担当 A | `gradlew assembleDebug` | **BUILD SUCCESSFUL** 確認済み |
+| **作業ブランチPush** | ✅ 完了 | 担当 A | `feature/role-a-core-data` | コミット＆リモートPush完了 |

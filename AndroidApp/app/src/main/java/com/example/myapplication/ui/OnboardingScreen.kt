@@ -4,10 +4,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -16,8 +18,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.myapplication.ui.theme.MyApplicationTheme
 
 private val periodOptions = listOf(3 to "3日間", 7 to "1週間", 14 to "2週間", 30 to "1ヶ月")
@@ -28,18 +32,20 @@ fun OnboardingScreen(
     modifier: Modifier = Modifier,
 ) {
     var selectedDays by remember { mutableIntStateOf(7) }
-    var dailyGoal by remember { mutableIntStateOf(0) }
+    // 初期値を 10本 に設定
+    var dailyGoal by remember { mutableIntStateOf(10) }
 
     Column(
         modifier = modifier
             .fillMaxSize()
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        Text("チャレンジ期間", style = MaterialTheme.typography.titleMedium)
+        Text("チャレンジ期間を選択", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.padding(top = 8.dp),
+            modifier = Modifier.padding(top = 16.dp),
         ) {
             periodOptions.forEach { (days, label) ->
                 FilterChip(
@@ -50,22 +56,26 @@ fun OnboardingScreen(
             }
         }
 
-        Text("1日の目標本数", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 32.dp))
+        Text("1日の目標本数", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 40.dp))
+        Text("初期値: 10本（お好みの設定本数に調整してください）", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary, modifier = Modifier.padding(top = 4.dp))
+
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            modifier = Modifier.padding(top = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(24.dp),
+            modifier = Modifier.padding(top = 16.dp),
         ) {
-            Button(onClick = { if (dailyGoal > 0) dailyGoal-- }) { Text("-") }
-            Text("${dailyGoal}本", style = MaterialTheme.typography.headlineSmall)
-            Button(onClick = { if (dailyGoal < 10) dailyGoal++ }) { Text("+") }
+            OutlinedButton(onClick = { if (dailyGoal > 0) dailyGoal-- }) { Text("-", fontSize = 24.sp) }
+            Text("${dailyGoal}本", style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Bold)
+            OutlinedButton(onClick = { dailyGoal++ }) { Text("+", fontSize = 24.sp) }
         }
 
         Button(
             onClick = { onStart(selectedDays, dailyGoal) },
-            modifier = Modifier.padding(top = 40.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 48.dp),
         ) {
-            Text("スタート")
+            Text("目標を設定してスタート", fontSize = 16.sp, fontWeight = FontWeight.Bold)
         }
     }
 }

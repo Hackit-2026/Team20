@@ -13,6 +13,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.example.myapplication.data.AppRepo
+import com.example.myapplication.notify.Reminder
 import com.example.myapplication.ui.AppNavigation
 import com.example.myapplication.ui.MainViewModel
 import com.example.myapplication.ui.theme.MyApplicationTheme
@@ -32,7 +33,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        com.example.myapplication.notify.Reminder.createChannel(this)
+        Reminder.createChannel(this)
         requestNotificationPermission()
         enableEdgeToEdge()
         setContent {
