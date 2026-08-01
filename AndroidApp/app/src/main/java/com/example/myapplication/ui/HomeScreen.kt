@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -21,7 +20,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -35,7 +33,6 @@ import java.time.format.DateTimeFormatter
 
 // アプリ全体で使う静かなパレット(ui パッケージ内で共有)。
 val ScreenBg = Color(0xFFE7E9EA)
-val Plate = Color(0xFFFFFFFF)
 val Ink = Color(0xFF20242B)
 val Muted = Color(0xFF6B7280)
 val MutedSoft = Color(0xFF9AA1AB)
@@ -124,32 +121,24 @@ private fun PermissionBanner(
     onRequestOverlayPermission: () -> Unit,
     onRequestUsageAccess: () -> Unit,
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(Plate)
-            .padding(14.dp),
+    Text(
+        text = "他アプリを開いた時に警告を出すための権限が未設定です",
+        color = Warn,
+        fontSize = 11.sp,
+        fontWeight = FontWeight.Bold,
+    )
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.padding(top = 6.dp),
     ) {
-        Text(
-            text = "他アプリを開いた時に警告を出すための権限が未設定です",
-            color = Ink,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold,
-        )
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.padding(top = 8.dp),
-        ) {
-            if (!overlayPermissionGranted) {
-                OutlinedButton(onClick = onRequestOverlayPermission) {
-                    Text("重ね表示を許可", fontSize = 12.sp)
-                }
+        if (!overlayPermissionGranted) {
+            OutlinedButton(onClick = onRequestOverlayPermission) {
+                Text("重ね表示を許可", fontSize = 12.sp)
             }
-            if (!usageAccessGranted) {
-                OutlinedButton(onClick = onRequestUsageAccess) {
-                    Text("使用状況アクセスを許可", fontSize = 12.sp)
-                }
+        }
+        if (!usageAccessGranted) {
+            OutlinedButton(onClick = onRequestUsageAccess) {
+                Text("使用状況アクセスを許可", fontSize = 12.sp)
             }
         }
     }
