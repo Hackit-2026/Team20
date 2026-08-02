@@ -3,6 +3,7 @@ package com.example.myapplication.ui
 import androidx.lifecycle.ViewModel
 import com.example.myapplication.data.AppRepo
 import com.example.myapplication.data.DailyReport
+import com.example.myapplication.data.GoalMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -11,7 +12,7 @@ import kotlinx.coroutines.flow.update
 data class UiState(
     val today: DailyReport = DailyReport(),
     val tempCount: Int = 10,
-    val initialCount: Int = 10, // 過去4週間の最大値の2/3を算出初期値とする
+    val initialCount: Int = 10,
     val daysUntilGoal: Long = 0,
     val goalAchieved: Boolean = false,
     val weeklyTotal: Int = 0,
@@ -22,6 +23,7 @@ data class UiState(
     val remainingPenaltySeconds: Int = 0,
     val currentGoal: Int = 10,
     val calculatedNextGoal: Int = 10,
+    val mode1Goal: Int = 0, // Mode 1: 今週平均 / 1.5 (切り捨て) 算出値
     val notifyHour: Int = 21,
     val notifyMinute: Int = 0,
     val allReports: Map<String, DailyReport> = emptyMap(),
@@ -55,6 +57,7 @@ class MainViewModel(private val repo: AppRepo) : ViewModel() {
                 remainingPenaltySeconds = repo.getRemainingPenaltySeconds(),
                 currentGoal = currentGoal,
                 calculatedNextGoal = repo.calculateNextGoal(1.5),
+                mode1Goal = repo.calculateMode1Goal(),
                 notifyHour = repo.getNotifyHour(),
                 notifyMinute = repo.getNotifyMinute(),
                 allReports = repo.getAllReports(),
@@ -69,6 +72,11 @@ class MainViewModel(private val repo: AppRepo) : ViewModel() {
 
     fun clearHeavyPenaltyLock() {
         repo.clearHeavyPenaltyLock()
+        refreshState()
+    }
+
+    fun applyGoalMode(mode: GoalMode) {
+        repo.applyGoalMode(mode)
         refreshState()
     }
 
