@@ -271,6 +271,16 @@ class AppRepo(context: Context) {
 
     fun isInitialized(): Boolean = loadData().isInitialized
 
+    /**
+     * 初回起動時のオンボーディング完了処理。
+     * 減煙モード: 入力された1日あたりの平均本数を初期目標にする。
+     * 完全禁煙モード: 初期目標を0本にする。
+     */
+    fun completeOnboarding(initialDailyGoal: Int) {
+        val data = loadData()
+        saveData(data.copy(currentGoal = initialDailyGoal.coerceAtLeast(0), isInitialized = true))
+    }
+
     fun resetAllData() {
         saveData(AppData())
     }

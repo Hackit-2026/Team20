@@ -314,7 +314,7 @@ private fun NavigationHeader(
             shape = RoundedCornerShape(20.dp),
             colors = if (isPenalty) ButtonDefaults.outlinedButtonColors(contentColor = Color.White) else ButtonDefaults.outlinedButtonColors()
         ) {
-            Text("🎯 減煙設定", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            Text("🎯 設定", fontSize = 13.sp, fontWeight = FontWeight.Bold)
         }
         OutlinedButton(
             onClick = onNavigateToDebug,

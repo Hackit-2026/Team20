@@ -23,6 +23,7 @@ import com.example.myapplication.data.GoalMode
 fun GoalSettingScreen(
     uiState: UiState,
     onApplyGoalMode: (GoalMode) -> Unit,
+    onSaveNotifyTime: (Int, Int) -> Unit,
     onBack: () -> Unit
 ) {
     var selectedMode by remember { mutableStateOf(GoalMode.MODE_1_GRADUAL) }
@@ -160,6 +161,49 @@ fun GoalSettingScreen(
                         colors = ButtonDefaults.buttonColors(containerColor = Accent)
                     ) {
                         Text("選択したモードで目標を適用して戻る")
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Text(
+                        text = "⏰ リマインド通知時刻の設定",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Ink
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "現在の時刻: ${uiState.notifyHour}時 ${uiState.notifyMinute}分",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Ink
+                        )
+                        Row {
+                            OutlinedButton(onClick = {
+                                val newH = (uiState.notifyHour + 1) % 24
+                                onSaveNotifyTime(newH, uiState.notifyMinute)
+                            }) { Text("時+") }
+                            Spacer(modifier = Modifier.width(4.dp))
+                            OutlinedButton(onClick = {
+                                val newM = (uiState.notifyMinute + 15) % 60
+                                onSaveNotifyTime(uiState.notifyHour, newM)
+                            }) { Text("分+") }
+                        }
                     }
                 }
             }
