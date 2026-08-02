@@ -34,6 +34,7 @@ data class AppData(
     val isInitialized: Boolean = false,
     val heavyPenaltyLockUntil: Long = 0L,
     val penaltyDismissedUntil: Long = 0L,
+    val lastOverlayTriggerTime: Long = 0L, // 🚨 最後に他アプリ上でペナルティを表示した時刻
 )
 
 private val JST: ZoneId = ZoneId.of("Asia/Tokyo")
@@ -75,7 +76,6 @@ class AppRepo(context: Context) {
 
     /**
      * 🎯 2つの目標調整モードの適用。
-     * 減煙モードはユーザーが入力した1日あたりの平均本数を新しい目標にする(未入力時は算出値にフォールバック)。
      */
     fun applyGoalMode(mode: GoalMode, manualAverage: Int? = null) {
         val nextGoal = when (mode) {
@@ -84,6 +84,32 @@ class AppRepo(context: Context) {
         }
         val data = loadData()
         saveData(data.copy(currentGoal = nextGoal))
+    }
+
+    /**
+     * 🚨 【新要件】吸った本数に応じて他アプリ起動時のペナルティ発生頻度（インターバルミリ秒）を計算。
+     * - 吸った本数が少ない（0本付近）: 2時間ごと (7,200,000 ms)
+     * - 吸った本数が多い（20本以上）: 30秒ごと (30,000 ms)
+     */
+    fun calculatePenaltyIntervalMs(): Long {
+        val count = getWeeklyTotalExcludingToday()
+        val clampedCount = count.coerceIn(0, 20)
+        val maxIntervalMs = 7_200_000L // 2時間 (7,200,000 ms)
+        val minIntervalMs = 30_000L    // 30秒 (30,000 ms)
+        val interval = maxIntervalMs - ((clampedCount / 20.0) * (maxIntervalMs - minIntervalMs)).toLong()
+        return interval.coerceIn(minIntervalMs, maxIntervalMs)
+    }
+
+    fun isOverlayIntervalPassed(): Boolean {
+        val data = loadData()
+        val now = System.currentTimeMillis()
+        val interval = calculatePenaltyIntervalMs()
+        return (now - data.lastOverlayTriggerTime) >= interval
+    }
+
+    fun recordOverlayTriggerTime() {
+        val data = loadData()
+        saveData(data.copy(lastOverlayTriggerTime = System.currentTimeMillis()))
     }
 
     fun getInitialCountForToday(): Int {
@@ -121,8 +147,7 @@ class AppRepo(context: Context) {
         val data = loadData()
         val now = System.currentTimeMillis()
         if (data.heavyPenaltyLockUntil < now && data.penaltyDismissedUntil < now) {
-            // デバッグ用に10秒に短縮中(本番は 60_000L = 60秒に戻す)
-            saveData(data.copy(heavyPenaltyLockUntil = now + 10_000L))
+            saveData(data.copy(heavyPenaltyLockUntil = now + 60_000L))
         }
     }
 
@@ -133,7 +158,6 @@ class AppRepo(context: Context) {
 
     fun clearHeavyPenaltyLock() {
         val data = loadData()
-        // スヌーズなし: 閉じてもまだ条件を満たしていれば即座に再発動する
         saveData(data.copy(heavyPenaltyLockUntil = 0L, penaltyDismissedUntil = 0L))
     }
 
@@ -166,10 +190,6 @@ class AppRepo(context: Context) {
 
     fun getAllReports(): Map<String, DailyReport> = loadData().reports
 
-    /**
-     * 🐣 キャラ成長度: 前日から1ヶ月前(30日間)までの累積本数。
-     * 1本 = 1段階、上限20(char_stage_0〜20 の21段階に対応)
-     */
     fun getCharacterStage(): Int {
         val data = loadData()
         val today = LocalDate.now(JST)
@@ -190,10 +210,6 @@ class AppRepo(context: Context) {
         }
     }
 
-    /**
-     * ペナルティ判定専用: 今日の申告はまだ確定していないので含めず、
-     * 前日から過去7日間の合計で判定する(保存した当日は発動せず、日付が変わってから発動する)。
-     */
     fun getWeeklyTotalExcludingToday(): Int {
         val data = loadData()
         val today = LocalDate.now(JST)
@@ -272,11 +288,6 @@ class AppRepo(context: Context) {
 
     fun isInitialized(): Boolean = loadData().isInitialized
 
-    /**
-     * 初回起動時のオンボーディング完了処理。
-     * 減煙モード: 入力された1日あたりの平均本数を初期目標にする。
-     * 完全禁煙モード: 初期目標を0本にする。
-     */
     fun completeOnboarding(initialDailyGoal: Int) {
         val data = loadData()
         saveData(data.copy(currentGoal = initialDailyGoal.coerceAtLeast(0), isInitialized = true))

@@ -64,7 +64,7 @@ class PenaltyWatcherService : Service() {
             while (isActive) {
                 val fg = getForegroundPackage()
                 // 🐣 ヤニモグラ自身を使っている間は壁紙変更・警告・操作ロックを一切出さない。
-                // 他アプリを開いている時だけ発生させる(保存直後の当日は発動せず、日付が変わってから発動する)。
+                // 他アプリを開いている時だけ発生させる
                 val usingOtherApp = fg != null && fg != packageName
 
                 val penaltyVal = repo.calculateWeightedPenaltyValue()
@@ -76,7 +76,9 @@ class PenaltyWatcherService : Service() {
                         removeOverlay()
                     }
                 } else {
-                    if (shouldHeavy && !repo.isHeavyPenaltyActive()) {
+                    // 🚨 他アプリを使用中 ＆ 吸った本数に応じたクールダウン時間（0本: 2時間、20本: 30秒）が経過している場合のみペナルティ発動
+                    if (shouldHeavy && repo.isOverlayIntervalPassed() && !repo.isHeavyPenaltyActive()) {
+                        repo.recordOverlayTriggerTime()
                         repo.triggerHeavyPenaltyLock()
                         // 🚨 スマホ端末本体のシステム壁紙を「重度ペナルティ危険警告壁紙」に変更
                         WallpaperHelper.setPenaltyWallpaper(applicationContext)
@@ -97,13 +99,6 @@ class PenaltyWatcherService : Service() {
         }
     }
 
-    /**
-     * 直近のMOVE_TO_FOREGROUNDイベントを見て「今どのアプリが前面にいるか」を返す。
-     * 固定窓(例: 直近10秒)だけを見ると、ユーザーが1つのアプリに10秒以上とどまった瞬間に
-     * 新規イベントが窓から外れてnullに戻ってしまう(=前面判定を見失う)ため、
-     * 前回クエリした時刻から現在までを毎回積み上げて見ることで、最後に検出した前面アプリを
-     * 新しいイベントが来るまで保持し続ける。
-     */
     private fun getForegroundPackage(): String? {
         val usm = getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager ?: return lastKnownForegroundPackage
         val end = System.currentTimeMillis()
