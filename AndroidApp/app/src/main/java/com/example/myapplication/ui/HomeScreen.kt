@@ -222,25 +222,7 @@ private fun CharacterSection(stage: Int, isPenalty: Boolean) {
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.padding(top = 16.dp),
     ) {
-        AnimatedVisibility(
-            visible = bubbleText != null,
-            enter = fadeIn() + scaleIn(),
-            exit = fadeOut() + scaleOut(),
-        ) {
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(4.dp),
-            ) {
-                Text(
-                    text = bubbleText ?: "",
-                    color = Ink,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                )
-            }
-        }
+        SpeechBubbleSlot(bubbleText)
         CharacterView(
             stage = stage,
             modifier = Modifier
@@ -263,6 +245,37 @@ private fun CharacterSection(stage: Int, isPenalty: Boolean) {
             fontSize = 14.sp,
             modifier = Modifier.padding(top = 6.dp),
         )
+    }
+}
+
+// 吹き出しが出てもレイアウトが動かないよう、常に同じ高さの領域を確保しておく
+@Composable
+private fun SpeechBubbleSlot(bubbleText: String?) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp),
+        contentAlignment = Alignment.BottomCenter,
+    ) {
+        AnimatedVisibility(
+            visible = bubbleText != null,
+            enter = fadeIn() + scaleIn(),
+            exit = fadeOut() + scaleOut(),
+        ) {
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(4.dp),
+            ) {
+                Text(
+                    text = bubbleText ?: "",
+                    color = Ink,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                )
+            }
+        }
     }
 }
 
