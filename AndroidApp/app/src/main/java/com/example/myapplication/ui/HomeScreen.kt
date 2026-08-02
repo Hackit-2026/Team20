@@ -2,7 +2,10 @@ package com.example.myapplication.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -11,12 +14,14 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -24,6 +29,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -49,9 +55,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -66,6 +77,10 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.random.Random
 
 val ScreenBg = Color(0xFFE7E9EA)
 val PenaltyWallpaperBg = Color(0xFF2B0A11) // 🚨 1週間に2本以上吸った際の重度ペナルティ壁紙色
@@ -310,51 +325,139 @@ private fun CharacterSection(stage: Int, isPenalty: Boolean) {
     }
 }
 
+// 🎰 マイナス(減煙)時のパチンコ大当たり風エフェクトの紙吹雪1粒分
+private data class ConfettiParticle(
+    val emoji: String,
+    val dirX: Float,   // 横方向の飛び散り(-0.8〜+0.8)
+    val dirY: Float,   // 上方向の打ち上げ初速
+    val size: Float,   // 文字サイズ(sp)
+)
+
 @Composable
 private fun MinusEffectOverlay(onEffectComplete: () -> Unit) {
-    val scale = remember { Animatable(0.5f) }
+    val progress = remember { Animatable(0f) }   // 演出全体の進行度 0→1
+    val textScale = remember { Animatable(0f) }  // 「大当たり」文字の飛び出し
+
+    // 紙吹雪は毎回違う飛び方になるようランダム生成
+    val particles = remember {
+        val emojis = listOf("🎉", "✨", "💰", "🎊", "⭐", "🥳", "💎")
+        List(22) { i ->
+            val rnd = Random(System.currentTimeMillis() + i * 31)
+            ConfettiParticle(
+                emoji = emojis[rnd.nextInt(emojis.size)],
+                dirX = (rnd.nextFloat() - 0.5f) * 1.6f,
+                dirY = -(0.25f + rnd.nextFloat() * 0.5f),
+                size = 18f + rnd.nextInt(16),
+            )
+        }
+    }
 
     LaunchedEffect(Unit) {
-        scale.animateTo(
-            targetValue = 1.3f,
-            animationSpec = tween(durationMillis = 300)
-        )
-        scale.animateTo(
-            targetValue = 1.0f,
-            animationSpec = tween(durationMillis = 200)
-        )
-        delay(600)
+        launch {
+            // バネで「ドンッ」と飛び出してぷるんと揺れる
+            textScale.animateTo(
+                targetValue = 1f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessLow,
+                ),
+            )
+        }
+        progress.animateTo(1f, animationSpec = tween(durationMillis = 1800, easing = LinearEasing))
         onEffectComplete()
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Transparent),
-        contentAlignment = Alignment.Center
-    ) {
-        Card(
-            modifier = Modifier.scale(scale.value),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF4CAF50)),
-            shape = RoundedCornerShape(16.dp),
-            elevation = CardDefaults.cardElevation(8.dp)
+    val p = progress.value
+    val fadeOut = (1f - (p - 0.7f) / 0.3f).coerceIn(0f, 1f)          // 最後の30%でフェードアウト
+    val flashAlpha = if (p < 0.55f) 0.30f * abs(sin(p * 42f)) else 0f // 序盤の金色点滅
+
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val w = maxWidth
+        val h = maxHeight
+
+        // ① 画面全体の金色フラッシュ点滅
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(Color(0xFFFFD700).copy(alpha = flashAlpha))
+        )
+
+        // ② 回転する放射光(パチンコの後光サンバースト)
+        Canvas(
+            modifier = Modifier
+                .fillMaxSize()
+                .alpha(0.45f * fadeOut)
         ) {
-            Column(
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+            val cx = size.width / 2f
+            val cy = size.height * 0.45f
+            val radius = size.maxDimension
+            rotate(degrees = p * 90f, pivot = Offset(cx, cy)) {
+                for (i in 0 until 12) {
+                    val angle = (Math.PI * 2 * i / 12).toFloat()
+                    val next = angle + 0.13f
+                    val ray = Path().apply {
+                        moveTo(cx, cy)
+                        lineTo(cx + radius * cos(angle), cy + radius * sin(angle))
+                        lineTo(cx + radius * cos(next), cy + radius * sin(next))
+                        close()
+                    }
+                    drawPath(ray, Color(0xFFFFE082))
+                }
+            }
+        }
+
+        // ③ 紙吹雪・コインが放物線を描いて飛び散る
+        particles.forEach { pt ->
+            val px = w / 2 + w * pt.dirX * p
+            val py = h * 0.45f + h * (pt.dirY * p + 0.85f * p * p) // 重力で落下
+            Text(
+                text = pt.emoji,
+                fontSize = pt.size.sp,
+                modifier = Modifier
+                    .offset(x = px, y = py)
+                    .alpha(fadeOut),
+            )
+        }
+
+        // ④ 「大当たり!!」がドーンと飛び出す
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .scale(textScale.value)
+                .alpha(fadeOut),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = "🎰 大当たり!!",
+                fontSize = 46.sp,
+                fontWeight = FontWeight.Black,
+                color = Color(0xFFFFD700),
+                style = TextStyle(shadow = Shadow(color = Color(0xAA000000), blurRadius = 12f)),
+            )
+            Card(
+                modifier = Modifier.padding(top = 12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF4CAF50)),
+                shape = RoundedCornerShape(16.dp),
+                elevation = CardDefaults.cardElevation(8.dp),
             ) {
-                Text(
-                    text = "✨ 減煙成功！ -1本",
-                    color = Color.White,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "素晴らしい！この調子で我慢しましょう🎉",
-                    color = Color(0xFFE8F5E9),
-                    fontSize = 12.sp,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
+                Column(
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 14.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        text = "✨ 減煙成功! −1本",
+                        color = Color.White,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = "素晴らしい!この調子で我慢しましょう🎉",
+                        color = Color(0xFFE8F5E9),
+                        fontSize = 13.sp,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
             }
         }
     }
