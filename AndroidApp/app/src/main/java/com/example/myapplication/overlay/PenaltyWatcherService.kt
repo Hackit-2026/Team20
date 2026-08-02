@@ -63,44 +63,48 @@ class PenaltyWatcherService : Service() {
         scope.launch {
             while (isActive) {
                 val fg = getForegroundPackage()
-                val isHeavyActive = repo.isHeavyPenaltyActive()
-                val penaltyVal = repo.calculateWeightedPenaltyValue()
-                val weeklyTotal = repo.getWeeklyTotal()
+                // 🐣 ヤニモグラ自身を使っている間は壁紙変更・警告・操作ロックを一切出さない。
+                // 他アプリを開いている時だけ発生させる(保存直後の当日は発動せず、日付が変わってから発動する)。
+                val usingOtherApp = fg != null && fg != packageName
 
+                val penaltyVal = repo.calculateWeightedPenaltyValue()
+                val weeklyTotal = repo.getWeeklyTotalExcludingToday()
                 val shouldHeavy = penaltyVal >= 5.0 || weeklyTotal >= 2
 
-                if (shouldHeavy && !isHeavyActive) {
-                    repo.triggerHeavyPenaltyLock()
-                    // 🚨 スマホ端末本体のシステム壁紙を「重度ペナルティ危険警告壁紙」に変更
-                    WallpaperHelper.setPenaltyWallpaper(applicationContext)
-                }
-
-                val currentHeavyActive = repo.isHeavyPenaltyActive()
-
-                if (currentHeavyActive) {
-                    if (overlayView == null || currentOverlayKind != OverlayKind.HEAVY) {
+                if (!usingOtherApp) {
+                    if (currentOverlayKind != OverlayKind.NONE) {
                         removeOverlay()
-                        showHeavyOverlay(repo)
                     }
-                } else if (fg == null || fg == packageName) {
-                    removeOverlay()
                     stableForeignPackage = null
                     stableForeignStreak = 0
                 } else {
-                    stableForeignStreak = if (fg == stableForeignPackage) stableForeignStreak + 1 else 1
-                    stableForeignPackage = fg
+                    if (shouldHeavy && !repo.isHeavyPenaltyActive()) {
+                        repo.triggerHeavyPenaltyLock()
+                        // 🚨 スマホ端末本体のシステム壁紙を「重度ペナルティ危険警告壁紙」に変更
+                        WallpaperHelper.setPenaltyWallpaper(applicationContext)
+                    }
 
-                    if (stableForeignStreak >= 2) {
-                        val desiredKind = when {
-                            penaltyVal >= 2.0 -> OverlayKind.LIGHT
-                            else -> OverlayKind.NONE
+                    if (repo.isHeavyPenaltyActive()) {
+                        if (overlayView == null || currentOverlayKind != OverlayKind.HEAVY) {
+                            removeOverlay()
+                            showHeavyOverlay(repo)
                         }
-                        if (desiredKind == OverlayKind.NONE) {
-                            removeOverlay()
-                        } else if (overlayView == null || currentOverlayKind != desiredKind) {
-                            removeOverlay()
-                            if (desiredKind == OverlayKind.LIGHT) {
-                                showLightOverlay(penaltyVal)
+                    } else {
+                        stableForeignStreak = if (fg == stableForeignPackage) stableForeignStreak + 1 else 1
+                        stableForeignPackage = fg
+
+                        if (stableForeignStreak >= 2) {
+                            val desiredKind = when {
+                                penaltyVal >= 2.0 -> OverlayKind.LIGHT
+                                else -> OverlayKind.NONE
+                            }
+                            if (desiredKind == OverlayKind.NONE) {
+                                removeOverlay()
+                            } else if (overlayView == null || currentOverlayKind != desiredKind) {
+                                removeOverlay()
+                                if (desiredKind == OverlayKind.LIGHT) {
+                                    showLightOverlay(penaltyVal)
+                                }
                             }
                         }
                     }
@@ -202,7 +206,7 @@ class PenaltyWatcherService : Service() {
             gravity = Gravity.CENTER
         })
         card.addView(TextView(this).apply {
-            text = String.format("重度ペナルティ (今週合計: %d本)", repo.getWeeklyTotal())
+            text = String.format("重度ペナルティ (今週合計: %d本)", repo.getWeeklyTotalExcludingToday())
             setTextColor(Color.parseColor("#CBD0D6"))
             textSize = 14f
             gravity = Gravity.CENTER

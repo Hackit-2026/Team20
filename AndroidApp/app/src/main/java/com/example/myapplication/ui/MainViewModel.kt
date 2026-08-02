@@ -28,6 +28,8 @@ data class UiState(
     val notifyMinute: Int = 0,
     val allReports: Map<String, DailyReport> = emptyMap(),
     val characterStage: Int = 0, // 🐣 前日〜1ヶ月の累積本数(0〜20の21段階)
+    // ペナルティ判定(今日の申告は含めない。保存した当日には発動せず、日付が変わってから発動する)
+    val isPenaltyThresholdMet: Boolean = false,
 )
 
 class MainViewModel(private val repo: AppRepo) : ViewModel() {
@@ -63,6 +65,7 @@ class MainViewModel(private val repo: AppRepo) : ViewModel() {
                 notifyMinute = repo.getNotifyMinute(),
                 allReports = repo.getAllReports(),
                 characterStage = repo.getCharacterStage(),
+                isPenaltyThresholdMet = repo.getWeeklyTotalExcludingToday() >= 2 || repo.calculateWeightedPenaltyValue() >= 5.0,
             )
         }
     }

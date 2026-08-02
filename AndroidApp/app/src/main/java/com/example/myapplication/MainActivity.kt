@@ -31,7 +31,6 @@ import com.example.myapplication.notify.Reminder
 import com.example.myapplication.overlay.PenaltyWatcherService
 import com.example.myapplication.ui.DebugScreen
 import com.example.myapplication.ui.GoalSettingScreen
-import com.example.myapplication.ui.HeavyPenaltyOverlay
 import com.example.myapplication.ui.HistoryScreen
 import com.example.myapplication.ui.HomeScreen
 import com.example.myapplication.ui.MainViewModel
@@ -127,16 +126,7 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                     }
-
-                    if (uiState.isHeavyPenaltyActive) {
-                        LaunchedEffect(Unit) {
-                            viewModel.triggerHeavyPenaltyLock()
-                        }
-                        HeavyPenaltyOverlay(
-                            remainingSeconds = uiState.remainingPenaltySeconds,
-                            onDismiss = { viewModel.clearHeavyPenaltyLock() },
-                        )
-                    }
+                    // 操作不能ロック・壁紙変更はアプリ内では発生させない(他アプリ使用時のみPenaltyWatcherServiceが表示する)
                 }
             }
         }

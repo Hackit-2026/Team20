@@ -2,16 +2,11 @@ package com.example.myapplication.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -46,11 +41,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -59,7 +51,6 @@ import androidx.compose.ui.unit.sp
 import com.example.myapplication.R
 import com.example.myapplication.data.DailyReport
 import com.example.myapplication.ui.theme.MyApplicationTheme
-import com.example.myapplication.util.WallpaperHelper
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -89,39 +80,20 @@ fun HomeScreen(
     onRequestUsageAccess: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    val context = LocalContext.current
     val today = remember {
         LocalDate.now(ZoneId.of("Asia/Tokyo")).format(DateTimeFormatter.ofPattern("M/d"))
     }
     val report = uiState.today
 
     // 🚨 【要件判定】1週間に2本以上吸っている、またはペナルティ指数5.0以上の重度ペナルティ時
-    val isHeavyWeeklyPenalty = uiState.weeklyTotal >= 2 || uiState.weightedPenaltyValue >= 5.0 || uiState.isHeavyPenaltyActive
-
-    // 🚨 重度ペナルティ発火時、スマホ本体の端末システム壁紙を自動で警告壁紙に変更！
-    LaunchedEffect(isHeavyWeeklyPenalty) {
-        if (isHeavyWeeklyPenalty) {
-            WallpaperHelper.setPenaltyWallpaper(context)
-        }
-    }
+    // (今日の申告は含めない。壁紙変更・操作ロックはアプリ外でのみ発生するので、ここはアプリ内の配色切り替えにのみ使う)
+    val isHeavyWeeklyPenalty = uiState.isPenaltyThresholdMet
 
     val currentBgColor = if (isHeavyWeeklyPenalty) PenaltyWallpaperBg else ScreenBg
     val textColor = if (isHeavyWeeklyPenalty) Color.White else Ink
 
     // ✨ マイナスボタンを押した際のエフェクト状態
     var showMinusEffect by remember { mutableStateOf(false) }
-
-    // 🚨 警告壁紙時のパルス点滅アニメーション
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.4f,
-        targetValue = 0.9f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1000),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulseAlpha"
-    )
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -147,29 +119,6 @@ fun HomeScreen(
                 onNavigateToDebug = onNavigateToDebug,
                 isPenalty = isHeavyWeeklyPenalty
             )
-
-            // 🚨 スマホ端末壁紙変更 ＆ アプリ内警告壁紙バナー
-            if (isHeavyWeeklyPenalty) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 12.dp)
-                        .alpha(pulseAlpha),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFF1744)),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(
-                        text = "🚨 【警告壁紙変更完了】今週合計: ${uiState.weeklyTotal}本\nスマホのシステム壁紙がペナルティ警告壁紙に変更されました",
-                        color = Color.White,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp)
-                    )
-                }
-            }
 
             Text(
                 text = today,
@@ -215,17 +164,6 @@ fun HomeScreen(
         }
     }
 }
-
-// 🐣 成長度0〜20に対応するキャラ画像(1本吸うごとに1段階悪化)
-private val charStageImages = listOf(
-    R.drawable.char_stage_0, R.drawable.char_stage_1, R.drawable.char_stage_2,
-    R.drawable.char_stage_3, R.drawable.char_stage_4, R.drawable.char_stage_5,
-    R.drawable.char_stage_6, R.drawable.char_stage_7, R.drawable.char_stage_8,
-    R.drawable.char_stage_9, R.drawable.char_stage_10, R.drawable.char_stage_11,
-    R.drawable.char_stage_12, R.drawable.char_stage_13, R.drawable.char_stage_14,
-    R.drawable.char_stage_15, R.drawable.char_stage_16, R.drawable.char_stage_17,
-    R.drawable.char_stage_18, R.drawable.char_stage_19, R.drawable.char_stage_20,
-)
 
 // タップ時のセリフ。成長度(悪化度)に応じて口調が変わる
 private fun reactionFor(stage: Int): String {
@@ -276,12 +214,10 @@ private fun CharacterSection(stage: Int, isPenalty: Boolean) {
                 )
             }
         }
-        Image(
-            painter = painterResource(charStageImages[stage.coerceIn(0, 20)]),
-            contentDescription = "キャラクター(成長度 $stage)",
+        CharacterView(
+            stage = stage,
             modifier = Modifier
                 .padding(top = 8.dp)
-                .size(150.dp)
                 .scale(charScale.value)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },

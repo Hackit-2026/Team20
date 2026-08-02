@@ -189,6 +189,19 @@ class AppRepo(context: Context) {
         }
     }
 
+    /**
+     * ペナルティ判定専用: 今日の申告はまだ確定していないので含めず、
+     * 前日から過去7日間の合計で判定する(保存した当日は発動せず、日付が変わってから発動する)。
+     */
+    fun getWeeklyTotalExcludingToday(): Int {
+        val data = loadData()
+        val today = LocalDate.now(JST)
+        return (1..7).sumOf { offset ->
+            val date = today.minusDays(offset.toLong()).format(dateFormatter)
+            data.reports[date]?.count ?: 0
+        }
+    }
+
     fun getWeeklyDailyAverage(): Double {
         return getWeeklyTotal() / 7.0
     }
