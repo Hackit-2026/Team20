@@ -11,6 +11,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -49,11 +50,13 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.myapplication.R
 import com.example.myapplication.data.DailyReport
 import com.example.myapplication.ui.theme.MyApplicationTheme
 import com.example.myapplication.util.WallpaperHelper
@@ -188,6 +191,9 @@ fun HomeScreen(
 
             StatusLine(report)
 
+            // 🐣 21段階成長キャラクター(前日〜1ヶ月の累積本数で変化、タップで反応)
+            CharacterSection(stage = uiState.characterStage, isPenalty = isHeavyWeeklyPenalty)
+
             Spacer(modifier = Modifier.height(24.dp))
 
             CountSection(
@@ -207,6 +213,93 @@ fun HomeScreen(
                 onEffectComplete = { showMinusEffect = false }
             )
         }
+    }
+}
+
+// 🐣 成長度0〜20に対応するキャラ画像(1本吸うごとに1段階悪化)
+private val charStageImages = listOf(
+    R.drawable.char_stage_0, R.drawable.char_stage_1, R.drawable.char_stage_2,
+    R.drawable.char_stage_3, R.drawable.char_stage_4, R.drawable.char_stage_5,
+    R.drawable.char_stage_6, R.drawable.char_stage_7, R.drawable.char_stage_8,
+    R.drawable.char_stage_9, R.drawable.char_stage_10, R.drawable.char_stage_11,
+    R.drawable.char_stage_12, R.drawable.char_stage_13, R.drawable.char_stage_14,
+    R.drawable.char_stage_15, R.drawable.char_stage_16, R.drawable.char_stage_17,
+    R.drawable.char_stage_18, R.drawable.char_stage_19, R.drawable.char_stage_20,
+)
+
+// タップ時のセリフ。成長度(悪化度)に応じて口調が変わる
+private fun reactionFor(stage: Int): String {
+    val lines = when {
+        stage == 0 -> listOf("毎日吸ってなくてうれしいよ!", "今日も空気がおいしい!", "肺がピカピカだよ✨")
+        stage <= 5 -> listOf("ちょっとヤニくさいかも…", "まだ引き返せるよ!", "のどがイガイガする…")
+        stage <= 10 -> listOf("けむりが恋しくなってきた…", "最近ちょっと体が重いなあ", "そろそろ本気で減らさない?")
+        stage <= 15 -> listOf("ライター…ライターどこ…", "飯より一服なんだよなぁ", "咳が止まらない…ゴホッ")
+        else -> listOf("モクをよこせェェ!!", "換気扇の下がワシの玉座じゃ", "…まだ、戻れるかな…?")
+    }
+    return lines.random()
+}
+
+@Composable
+private fun CharacterSection(stage: Int, isPenalty: Boolean) {
+    var bubbleText by remember { mutableStateOf<String?>(null) }
+    val charScale = remember { Animatable(1f) }
+    val scope = rememberCoroutineScope()
+
+    // 吹き出しは2.5秒後に自動で消える
+    LaunchedEffect(bubbleText) {
+        if (bubbleText != null) {
+            delay(2500)
+            bubbleText = null
+        }
+    }
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.padding(top = 16.dp),
+    ) {
+        AnimatedVisibility(
+            visible = bubbleText != null,
+            enter = fadeIn() + scaleIn(),
+            exit = fadeOut() + scaleOut(),
+        ) {
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(4.dp),
+            ) {
+                Text(
+                    text = bubbleText ?: "",
+                    color = Ink,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                )
+            }
+        }
+        Image(
+            painter = painterResource(charStageImages[stage.coerceIn(0, 20)]),
+            contentDescription = "キャラクター(成長度 $stage)",
+            modifier = Modifier
+                .padding(top = 8.dp)
+                .size(150.dp)
+                .scale(charScale.value)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                ) {
+                    bubbleText = reactionFor(stage)
+                    scope.launch {
+                        charScale.animateTo(1.15f, animationSpec = tween(120))
+                        charScale.animateTo(1f, animationSpec = tween(150))
+                    }
+                },
+        )
+        Text(
+            text = "成長度 $stage / 20(前日までの1ヶ月累積)",
+            color = if (isPenalty) Color(0xFFD0D0D0) else MutedSoft,
+            fontSize = 12.sp,
+            modifier = Modifier.padding(top = 6.dp),
+        )
     }
 }
 

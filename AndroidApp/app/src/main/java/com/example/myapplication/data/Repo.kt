@@ -164,6 +164,21 @@ class AppRepo(context: Context) {
 
     fun getAllReports(): Map<String, DailyReport> = loadData().reports
 
+    /**
+     * 🐣 キャラ成長度: 前日から1ヶ月前(30日間)までの累積本数。
+     * 1本 = 1段階、上限20(char_stage_0〜20 の21段階に対応)
+     */
+    fun getCharacterStage(): Int {
+        val data = loadData()
+        val today = LocalDate.now(JST)
+        var total = 0
+        for (i in 1..30) {
+            val date = today.minusDays(i.toLong()).format(dateFormatter)
+            total += data.reports[date]?.count ?: 0
+        }
+        return total.coerceIn(0, 20)
+    }
+
     fun getWeeklyTotal(): Int {
         val data = loadData()
         val today = LocalDate.now(JST)

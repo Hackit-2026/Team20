@@ -27,6 +27,7 @@ data class UiState(
     val notifyHour: Int = 21,
     val notifyMinute: Int = 0,
     val allReports: Map<String, DailyReport> = emptyMap(),
+    val characterStage: Int = 0, // 🐣 前日〜1ヶ月の累積本数(0〜20の21段階)
 )
 
 class MainViewModel(private val repo: AppRepo) : ViewModel() {
@@ -61,6 +62,7 @@ class MainViewModel(private val repo: AppRepo) : ViewModel() {
                 notifyHour = repo.getNotifyHour(),
                 notifyMinute = repo.getNotifyMinute(),
                 allReports = repo.getAllReports(),
+                characterStage = repo.getCharacterStage(),
             )
         }
     }
