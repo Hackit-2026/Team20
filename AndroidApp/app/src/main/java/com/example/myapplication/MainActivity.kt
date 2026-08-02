@@ -70,8 +70,6 @@ class MainActivity : ComponentActivity() {
                 val uiState by viewModel.uiState.collectAsState()
                 var currentRoute by remember { mutableStateOf(ScreenRoute.HOME) }
 
-                // 🔙 端末のシステム戻るボタン / 戻るジェスチャー検知。
-                // メイン画面以外にいる場合、戻る操作で自動的にメイン画面へ遷移！
                 BackHandler(enabled = currentRoute != ScreenRoute.HOME) {
                     currentRoute = ScreenRoute.HOME
                 }
@@ -108,7 +106,7 @@ class MainActivity : ComponentActivity() {
                         ScreenRoute.GOAL_SETTING -> {
                             GoalSettingScreen(
                                 uiState = uiState,
-                                onApplyNextGoal = { difficulty -> viewModel.applyNextGoal(difficulty) },
+                                onApplyGoalMode = { mode -> viewModel.applyGoalMode(mode) },
                                 onBack = { currentRoute = ScreenRoute.HOME }
                             )
                         }

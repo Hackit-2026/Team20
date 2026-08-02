@@ -12,6 +12,11 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import kotlin.math.floor
 
+enum class GoalMode {
+    MODE_1_GRADUAL, // Mode 1: 今日の目標 = 今までの1週間の平均値 / 1.5 (切り捨て)
+    MODE_2_ZERO     // Mode 2: 今日の目標は常に0にする
+}
+
 @Serializable
 data class DailyReport(
     val reported: Boolean = false,
@@ -60,9 +65,26 @@ class AppRepo(context: Context) {
     fun getCurrentGoal(): Int = loadData().currentGoal
 
     /**
-     * 📊 【新要件】何本吸ったかを入力するところを先週4週間（28日間）の最大値の2/3を初期値にする
-     * 公式: floor( MaxCount * 2 / 3 )
+     * 🎯 【新要件】Mode 1 算出計算
+     * 今日の目標 = 今までの1週間の平均値 / 1.5 (小数点以下切り捨て)
      */
+    fun calculateMode1Goal(): Int {
+        val weeklyAvg = getWeeklyDailyAverage()
+        return floor(weeklyAvg / 1.5).toInt().coerceAtLeast(0)
+    }
+
+    /**
+     * 🎯 2つの目標調整モードの適用
+     */
+    fun applyGoalMode(mode: GoalMode) {
+        val nextGoal = when (mode) {
+            GoalMode.MODE_1_GRADUAL -> calculateMode1Goal()
+            GoalMode.MODE_2_ZERO -> 0
+        }
+        val data = loadData()
+        saveData(data.copy(currentGoal = nextGoal))
+    }
+
     fun getInitialCountForToday(): Int {
         val data = loadData()
         val today = LocalDate.now(JST)
@@ -141,6 +163,21 @@ class AppRepo(context: Context) {
     }
 
     fun getAllReports(): Map<String, DailyReport> = loadData().reports
+
+    /**
+     * 🐣 キャラ成長度: 前日から1ヶ月前(30日間)までの累積本数。
+     * 1本 = 1段階、上限20(char_stage_0〜20 の21段階に対応)
+     */
+    fun getCharacterStage(): Int {
+        val data = loadData()
+        val today = LocalDate.now(JST)
+        var total = 0
+        for (i in 1..30) {
+            val date = today.minusDays(i.toLong()).format(dateFormatter)
+            total += data.reports[date]?.count ?: 0
+        }
+        return total.coerceIn(0, 20)
+    }
 
     fun getWeeklyTotal(): Int {
         val data = loadData()

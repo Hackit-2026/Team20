@@ -123,19 +123,31 @@ fun HistoryScreen(
                     colors = CardDefaults.cardColors(containerColor = Color.White),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Row(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(text = date, color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(text = date, color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                            Text(
+                                text = if (entry.smoked) "吸った (${entry.count}本)" else "吸わなかった (0本)",
+                                color = if (entry.smoked) Warn else Accent,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        // 🚬 本数をタバコの絵で直感的に表現(0本の日は葉っぱでクリーン表示)
                         Text(
-                            text = if (entry.smoked) "吸った (${entry.count}本)" else "吸わなかった (0本)",
-                            color = if (entry.smoked) Warn else Accent,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold
+                            text = if (entry.smoked) "🚬".repeat(entry.count.coerceAtMost(40)) else "🌿 クリーンな1日!",
+                            fontSize = if (entry.smoked) 18.sp else 13.sp,
+                            color = if (entry.smoked) Ink else Accent,
+                            lineHeight = 24.sp,
+                            modifier = Modifier.padding(top = 8.dp)
                         )
                     }
                 }
