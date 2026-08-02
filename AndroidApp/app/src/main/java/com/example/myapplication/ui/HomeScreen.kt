@@ -4,20 +4,20 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -51,12 +51,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.graphics.drawscope.rotate
-import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -109,8 +105,8 @@ fun HomeScreen(
     val currentBgColor = if (isHeavyWeeklyPenalty) PenaltyWallpaperBg else ScreenBg
     val textColor = if (isHeavyWeeklyPenalty) Color.White else Ink
 
-    // ✨ 保存時、開いた時点の本数より減っていたら演出を出す
-    var showMinusEffect by remember { mutableStateOf(false) }
+    // ✨ 保存時、0本なら禁煙成功、開いた時点の本数より減っていれば減煙成功の演出を出す(タップするまで表示し続ける)
+    var activeSuccessEffect by remember { mutableStateOf<SuccessEffectType?>(null) }
     val startingCount = remember { uiState.tempCount }
 
     Box(
@@ -174,8 +170,10 @@ fun HomeScreen(
                 onIncrementTemp = onIncrementTemp,
                 onDecrementTemp = onDecrementTemp,
                 onSaveReport = {
-                    if (uiState.tempCount < startingCount) {
-                        showMinusEffect = true
+                    activeSuccessEffect = when {
+                        uiState.tempCount == 0 -> SuccessEffectType.QUIT
+                        uiState.tempCount < startingCount -> SuccessEffectType.REDUCE
+                        else -> null
                     }
                     onSaveReport()
                 },
@@ -184,9 +182,10 @@ fun HomeScreen(
             )
         }
 
-        if (showMinusEffect) {
-            MinusEffectOverlay(
-                onEffectComplete = { showMinusEffect = false }
+        activeSuccessEffect?.let { type ->
+            SuccessEffectOverlay(
+                type = type,
+                onDismiss = { activeSuccessEffect = null },
             )
         }
     }
@@ -279,140 +278,100 @@ private fun SpeechBubbleSlot(bubbleText: String?) {
     }
 }
 
-// 🎰 マイナス(減煙)時のパチンコ大当たり風エフェクトの紙吹雪1粒分
-private data class ConfettiParticle(
-    val emoji: String,
-    val dirX: Float,   // 横方向の飛び散り(-0.8〜+0.8)
-    val dirY: Float,   // 上方向の打ち上げ初速
-    val size: Float,   // 文字サイズ(sp)
+// ✨ 減煙/禁煙成功時のドット風エフェクト、緑の火花1粒分
+private data class SparkleDot(
+    val angleDeg: Float,   // 中心の四角から見た方向
+    val distanceDp: Float, // 中心からの距離
+    val sizeDp: Float,     // 四角のサイズ(ドット風なので小さめ)
+    val delay: Float,      // 0〜1、点滅を始めるタイミングをずらす
 )
 
-@Composable
-private fun MinusEffectOverlay(onEffectComplete: () -> Unit) {
-    val progress = remember { Animatable(0f) }   // 演出全体の進行度 0→1
-    val textScale = remember { Animatable(0f) }  // 「大当たり」文字の飛び出し
+private enum class SuccessEffectType { REDUCE, QUIT }
 
-    // 紙吹雪は毎回違う飛び方になるようランダム生成
-    val particles = remember {
-        val emojis = listOf("🎉", "✨", "💰", "🎊", "⭐", "🥳", "💎")
-        List(22) { i ->
-            val rnd = Random(System.currentTimeMillis() + i * 31)
-            ConfettiParticle(
-                emoji = emojis[rnd.nextInt(emojis.size)],
-                dirX = (rnd.nextFloat() - 0.5f) * 1.6f,
-                dirY = -(0.25f + rnd.nextFloat() * 0.5f),
-                size = 18f + rnd.nextInt(16),
+// ユーザーが画面をタップして閉じるまで表示し続ける演出。火花はループでチカチカし続ける
+@Composable
+private fun SuccessEffectOverlay(type: SuccessEffectType, onDismiss: () -> Unit) {
+    val boxScale = remember { Animatable(0f) }  // 中央の四角がドット風にカクッと出てくる
+
+    // 緑の火花は毎回違う位置になるようランダム生成
+    val sparkles = remember {
+        List(10) { i ->
+            val rnd = Random(System.currentTimeMillis() + i * 17)
+            SparkleDot(
+                angleDeg = rnd.nextFloat() * 360f,
+                distanceDp = 60f + rnd.nextFloat() * 50f,
+                sizeDp = 5f + rnd.nextInt(6),
+                delay = rnd.nextFloat() * 0.4f,
             )
         }
     }
+
+    // 火花の点滅はタップされるまでループさせ続ける
+    val infiniteTransition = rememberInfiniteTransition(label = "sparkleLoop")
+    val loopProgress by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(animation = tween(durationMillis = 1400, easing = LinearEasing)),
+        label = "sparkleProgress",
+    )
 
     LaunchedEffect(Unit) {
-        launch {
-            // バネで「ドンッ」と飛び出してぷるんと揺れる
-            textScale.animateTo(
-                targetValue = 1f,
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessLow,
-                ),
-            )
-        }
-        progress.animateTo(1f, animationSpec = tween(durationMillis = 1800, easing = LinearEasing))
-        onEffectComplete()
+        // 丸みのない、カクッとした2段階のポップイン(ドット絵らしいステップ感)
+        boxScale.animateTo(1.15f, animationSpec = tween(durationMillis = 120, easing = LinearEasing))
+        boxScale.animateTo(1f, animationSpec = tween(durationMillis = 90, easing = LinearEasing))
     }
 
-    val p = progress.value
-    val fadeOut = (1f - (p - 0.7f) / 0.3f).coerceIn(0f, 1f)          // 最後の30%でフェードアウト
-    val flashAlpha = if (p < 0.55f) 0.30f * abs(sin(p * 42f)) else 0f // 序盤の金色点滅
+    val (line1, line2) = when (type) {
+        SuccessEffectType.REDUCE -> "減煙" to "成功"
+        SuccessEffectType.QUIT -> "禁煙" to "成功"
+    }
 
-    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val w = maxWidth
-        val h = maxHeight
-
-        // ① 画面全体の金色フラッシュ点滅
-        Box(
-            Modifier
-                .fillMaxSize()
-                .background(Color(0xFFFFD700).copy(alpha = flashAlpha))
-        )
-
-        // ② 回転する放射光(パチンコの後光サンバースト)
-        Canvas(
-            modifier = Modifier
-                .fillMaxSize()
-                .alpha(0.45f * fadeOut)
-        ) {
-            val cx = size.width / 2f
-            val cy = size.height * 0.45f
-            val radius = size.maxDimension
-            rotate(degrees = p * 90f, pivot = Offset(cx, cy)) {
-                for (i in 0 until 12) {
-                    val angle = (Math.PI * 2 * i / 12).toFloat()
-                    val next = angle + 0.13f
-                    val ray = Path().apply {
-                        moveTo(cx, cy)
-                        lineTo(cx + radius * cos(angle), cy + radius * sin(angle))
-                        lineTo(cx + radius * cos(next), cy + radius * sin(next))
-                        close()
-                    }
-                    drawPath(ray, Color(0xFFFFE082))
-                }
-            }
-        }
-
-        // ③ 紙吹雪・コインが放物線を描いて飛び散る
-        particles.forEach { pt ->
-            val px = w / 2 + w * pt.dirX * p
-            val py = h * 0.45f + h * (pt.dirY * p + 0.85f * p * p) // 重力で落下
-            Text(
-                text = pt.emoji,
-                fontSize = pt.size.sp,
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onDismiss,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        // 緑の火花(ドット)。中心の四角の周りでチカチカ点滅する
+        sparkles.forEach { s ->
+            val local = (loopProgress - s.delay).let { if (it < 0f) it + 1f else it }
+            val twinkle = abs(sin(local * Math.PI.toFloat() * 2.2f))
+            val offsetX = (cos(Math.toRadians(s.angleDeg.toDouble())) * s.distanceDp).toFloat()
+            val offsetY = (sin(Math.toRadians(s.angleDeg.toDouble())) * s.distanceDp).toFloat()
+            Box(
                 modifier = Modifier
-                    .offset(x = px, y = py)
-                    .alpha(fadeOut),
+                    .offset(x = offsetX.dp, y = offsetY.dp)
+                    .size(s.sizeDp.dp)
+                    .alpha(twinkle)
+                    .background(Color(0xFF4CAF50), RectangleShape),
             )
         }
 
-        // ④ 「大当たり!!」がドーンと飛び出す
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .scale(textScale.value)
-                .alpha(fadeOut),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text(
-                text = "🎰 大当たり!!",
-                fontSize = 46.sp,
-                fontWeight = FontWeight.Black,
-                color = Color(0xFFFFD700),
-                style = TextStyle(shadow = Shadow(color = Color(0xAA000000), blurRadius = 12f)),
-            )
-            Card(
-                modifier = Modifier.padding(top = 12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF4CAF50)),
-                shape = RoundedCornerShape(16.dp),
-                elevation = CardDefaults.cardElevation(8.dp),
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            // 中央の四角: 「減煙/禁煙」「成功」をドット風の四角の中に表示
+            Box(
+                modifier = Modifier
+                    .scale(boxScale.value)
+                    .background(Color.White, RectangleShape)
+                    .border(width = 3.dp, color = Ink, shape = RectangleShape)
+                    .padding(horizontal = 28.dp, vertical = 16.dp),
+                contentAlignment = Alignment.Center,
             ) {
-                Column(
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 14.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Text(
-                        text = "✨ 減煙成功! −1本",
-                        color = Color.White,
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Text(
-                        text = "素晴らしい!この調子で我慢しましょう🎉",
-                        color = Color(0xFFE8F5E9),
-                        fontSize = 13.sp,
-                        modifier = Modifier.padding(top = 4.dp),
-                    )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(text = line1, color = Ink, fontSize = 22.sp, fontWeight = FontWeight.Black)
+                    Text(text = line2, color = Color(0xFF4CAF50), fontSize = 22.sp, fontWeight = FontWeight.Black)
                 }
             }
+            Text(
+                text = "タップして閉じる",
+                color = Muted,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(top = 16.dp),
+            )
         }
     }
 }
