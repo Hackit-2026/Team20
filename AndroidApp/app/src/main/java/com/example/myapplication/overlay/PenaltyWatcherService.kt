@@ -21,6 +21,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.app.NotificationCompat
 import com.example.myapplication.data.AppRepo
+import com.example.myapplication.util.WallpaperHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -64,9 +65,14 @@ class PenaltyWatcherService : Service() {
                 val fg = getForegroundPackage()
                 val isHeavyActive = repo.isHeavyPenaltyActive()
                 val penaltyVal = repo.calculateWeightedPenaltyValue()
+                val weeklyTotal = repo.getWeeklyTotal()
 
-                if (penaltyVal >= 5.0 && !isHeavyActive) {
+                val shouldHeavy = penaltyVal >= 5.0 || weeklyTotal >= 2
+
+                if (shouldHeavy && !isHeavyActive) {
                     repo.triggerHeavyPenaltyLock()
+                    // 🚨 スマホ端末本体のシステム壁紙を「重度ペナルティ危険警告壁紙」に変更
+                    WallpaperHelper.setPenaltyWallpaper(applicationContext)
                 }
 
                 val currentHeavyActive = repo.isHeavyPenaltyActive()
@@ -165,7 +171,6 @@ class PenaltyWatcherService : Service() {
         }
     }
 
-    /** 🚨 重度ペナルティ: 60秒間カウントダウン。タイマー完了時に「閉じる」を押して解除 */
     private fun showHeavyOverlay(repo: AppRepo) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) return
         val density = resources.displayMetrics.density
@@ -180,7 +185,7 @@ class PenaltyWatcherService : Service() {
             text = "閉じる"
             visibility = View.GONE
             setOnClickListener {
-                repo.clearHeavyPenaltyLock() // 🚨 カウントダウン完了後に閉じるを押して初めてロック解除！
+                repo.clearHeavyPenaltyLock()
                 removeOverlay()
             }
         }
@@ -197,7 +202,7 @@ class PenaltyWatcherService : Service() {
             gravity = Gravity.CENTER
         })
         card.addView(TextView(this).apply {
-            text = String.format("重み付きペナルティ指数: %.1f (5.0以上)", repo.calculateWeightedPenaltyValue())
+            text = String.format("重度ペナルティ (今週合計: %d本)", repo.getWeeklyTotal())
             setTextColor(Color.parseColor("#CBD0D6"))
             textSize = 14f
             gravity = Gravity.CENTER

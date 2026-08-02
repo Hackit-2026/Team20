@@ -113,6 +113,43 @@ fun DebugScreen(
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
                     Text(
+                        text = "🚨 重度ペナルティ ＆ 壁紙変更テストボタン",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Warn
+                    )
+
+                    Text(
+                        text = "昨日の喫煙データに3本を投入し、今週合計2本以上の重度ペナルティ（警告壁紙＆60秒ロック）を一発で発火させます。",
+                        fontSize = 12.sp,
+                        color = MutedSoft,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Button(
+                        onClick = {
+                            val yesterday = LocalDate.now().minusDays(1).toString()
+                            onSubmitForDate(yesterday, 3)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = Warn)
+                    ) {
+                        Text("昨日に3本吸ったデータを入れて警告壁紙をテスト")
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Text(
                         text = "📊 過去30日間のデモデータ一括追加",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,

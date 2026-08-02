@@ -7,6 +7,7 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.SET_WALLPAPER" />
 
     <!-- ペナルティ中に他アプリを開いたことを検知し、上に重ねてメッセージを出すための権限 -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
