@@ -30,7 +30,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
-private enum class OverlayKind { NONE, LIGHT, HEAVY }
+private enum class OverlayKind { NONE, HEAVY }
 
 class PenaltyWatcherService : Service() {
 
@@ -38,8 +38,8 @@ class PenaltyWatcherService : Service() {
     private var watching = false
     private var overlayView: View? = null
     private var currentOverlayKind: OverlayKind = OverlayKind.NONE
-    private var stableForeignPackage: String? = null
-    private var stableForeignStreak: Int = 0
+    private var lastKnownForegroundPackage: String? = null
+    private var lastEventQueryTime: Long = System.currentTimeMillis() - 10_000
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -75,8 +75,6 @@ class PenaltyWatcherService : Service() {
                     if (currentOverlayKind != OverlayKind.NONE) {
                         removeOverlay()
                     }
-                    stableForeignPackage = null
-                    stableForeignStreak = 0
                 } else {
                     if (shouldHeavy && !repo.isHeavyPenaltyActive()) {
                         repo.triggerHeavyPenaltyLock()
@@ -89,24 +87,8 @@ class PenaltyWatcherService : Service() {
                             removeOverlay()
                             showHeavyOverlay(repo)
                         }
-                    } else {
-                        stableForeignStreak = if (fg == stableForeignPackage) stableForeignStreak + 1 else 1
-                        stableForeignPackage = fg
-
-                        if (stableForeignStreak >= 2) {
-                            val desiredKind = when {
-                                penaltyVal >= 2.0 -> OverlayKind.LIGHT
-                                else -> OverlayKind.NONE
-                            }
-                            if (desiredKind == OverlayKind.NONE) {
-                                removeOverlay()
-                            } else if (overlayView == null || currentOverlayKind != desiredKind) {
-                                removeOverlay()
-                                if (desiredKind == OverlayKind.LIGHT) {
-                                    showLightOverlay(penaltyVal)
-                                }
-                            }
-                        }
+                    } else if (currentOverlayKind != OverlayKind.NONE) {
+                        removeOverlay()
                     }
                 }
 
@@ -115,64 +97,27 @@ class PenaltyWatcherService : Service() {
         }
     }
 
+    /**
+     * 直近のMOVE_TO_FOREGROUNDイベントを見て「今どのアプリが前面にいるか」を返す。
+     * 固定窓(例: 直近10秒)だけを見ると、ユーザーが1つのアプリに10秒以上とどまった瞬間に
+     * 新規イベントが窓から外れてnullに戻ってしまう(=前面判定を見失う)ため、
+     * 前回クエリした時刻から現在までを毎回積み上げて見ることで、最後に検出した前面アプリを
+     * 新しいイベントが来るまで保持し続ける。
+     */
     private fun getForegroundPackage(): String? {
-        val usm = getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager ?: return null
+        val usm = getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager ?: return lastKnownForegroundPackage
         val end = System.currentTimeMillis()
-        val begin = end - 10_000
+        val begin = lastEventQueryTime
         val events = usm.queryEvents(begin, end)
         val event = UsageEvents.Event()
-        var result: String? = null
         while (events.hasNextEvent()) {
             events.getNextEvent(event)
             if (event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) {
-                result = event.packageName
+                lastKnownForegroundPackage = event.packageName
             }
         }
-        return result
-    }
-
-    private fun showLightOverlay(penaltyVal: Double) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) return
-        val density = resources.displayMetrics.density
-
-        val card = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.WHITE)
-            setPadding((28 * density).toInt(), (28 * density).toInt(), (28 * density).toInt(), (28 * density).toInt())
-            gravity = Gravity.CENTER_HORIZONTAL
-        }
-        card.addView(TextView(this).apply {
-            text = "⚠ ペナルティ注意"
-            setTextColor(Color.parseColor("#B3261E"))
-            textSize = 20f
-            gravity = Gravity.CENTER
-        })
-        card.addView(TextView(this).apply {
-            text = String.format("直近6日間のペナルティ指数: %.1f\n禁煙ペースを守りましょう！", penaltyVal)
-            setTextColor(Color.parseColor("#20242B"))
-            textSize = 14f
-            gravity = Gravity.CENTER
-            setPadding(0, (16 * density).toInt(), 0, (20 * density).toInt())
-        })
-        card.addView(Button(this).apply {
-            text = "閉じる"
-            setOnClickListener { removeOverlay() }
-        })
-
-        val root = FrameLayout(this).apply {
-            setBackgroundColor(Color.parseColor("#CC000000"))
-        }
-        root.addView(
-            card,
-            FrameLayout.LayoutParams(
-                (280 * density).toInt(),
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-            ).apply { gravity = Gravity.CENTER }
-        )
-
-        if (addOverlayView(root)) {
-            currentOverlayKind = OverlayKind.LIGHT
-        }
+        lastEventQueryTime = end
+        return lastKnownForegroundPackage
     }
 
     private fun showHeavyOverlay(repo: AppRepo) {
