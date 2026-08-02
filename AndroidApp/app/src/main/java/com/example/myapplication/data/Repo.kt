@@ -133,8 +133,8 @@ class AppRepo(context: Context) {
 
     fun clearHeavyPenaltyLock() {
         val data = loadData()
-        val now = System.currentTimeMillis()
-        saveData(data.copy(heavyPenaltyLockUntil = 0L, penaltyDismissedUntil = now + 1_800_000L))
+        // スヌーズなし: 閉じてもまだ条件を満たしていれば即座に再発動する
+        saveData(data.copy(heavyPenaltyLockUntil = 0L, penaltyDismissedUntil = 0L))
     }
 
     fun getRemainingPenaltySeconds(): Int {
