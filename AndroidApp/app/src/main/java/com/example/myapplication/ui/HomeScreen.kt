@@ -188,6 +188,12 @@ fun HomeScreen(
 
             StatusLine(report)
 
+            // TODO: 動作確認用の一時組み込み。確認後は削除する
+            CharacterView(
+                stage = uiState.weightedPenaltyValue.toInt(),
+                modifier = Modifier.padding(top = 16.dp),
+            )
+
             Spacer(modifier = Modifier.height(24.dp))
 
             CountSection(
