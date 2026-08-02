@@ -74,11 +74,12 @@ class AppRepo(context: Context) {
     }
 
     /**
-     * 🎯 2つの目標調整モードの適用
+     * 🎯 2つの目標調整モードの適用。
+     * 減煙モードはユーザーが入力した1日あたりの平均本数を新しい目標にする(未入力時は算出値にフォールバック)。
      */
-    fun applyGoalMode(mode: GoalMode) {
+    fun applyGoalMode(mode: GoalMode, manualAverage: Int? = null) {
         val nextGoal = when (mode) {
-            GoalMode.MODE_1_GRADUAL -> calculateMode1Goal()
+            GoalMode.MODE_1_GRADUAL -> manualAverage?.coerceAtLeast(0) ?: calculateMode1Goal()
             GoalMode.MODE_2_ZERO -> 0
         }
         val data = loadData()
@@ -189,6 +190,19 @@ class AppRepo(context: Context) {
         }
     }
 
+    /**
+     * ペナルティ判定専用: 今日の申告はまだ確定していないので含めず、
+     * 前日から過去7日間の合計で判定する(保存した当日は発動せず、日付が変わってから発動する)。
+     */
+    fun getWeeklyTotalExcludingToday(): Int {
+        val data = loadData()
+        val today = LocalDate.now(JST)
+        return (1..7).sumOf { offset ->
+            val date = today.minusDays(offset.toLong()).format(dateFormatter)
+            data.reports[date]?.count ?: 0
+        }
+    }
+
     fun getWeeklyDailyAverage(): Double {
         return getWeeklyTotal() / 7.0
     }
@@ -257,6 +271,16 @@ class AppRepo(context: Context) {
     }
 
     fun isInitialized(): Boolean = loadData().isInitialized
+
+    /**
+     * 初回起動時のオンボーディング完了処理。
+     * 減煙モード: 入力された1日あたりの平均本数を初期目標にする。
+     * 完全禁煙モード: 初期目標を0本にする。
+     */
+    fun completeOnboarding(initialDailyGoal: Int) {
+        val data = loadData()
+        saveData(data.copy(currentGoal = initialDailyGoal.coerceAtLeast(0), isInitialized = true))
+    }
 
     fun resetAllData() {
         saveData(AppData())

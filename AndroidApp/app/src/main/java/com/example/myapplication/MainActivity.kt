@@ -31,13 +31,14 @@ import com.example.myapplication.notify.Reminder
 import com.example.myapplication.overlay.PenaltyWatcherService
 import com.example.myapplication.ui.DebugScreen
 import com.example.myapplication.ui.GoalSettingScreen
-import com.example.myapplication.ui.HeavyPenaltyOverlay
 import com.example.myapplication.ui.HistoryScreen
 import com.example.myapplication.ui.HomeScreen
 import com.example.myapplication.ui.MainViewModel
+import com.example.myapplication.ui.OnboardingScreen
 import com.example.myapplication.ui.theme.MyApplicationTheme
 
 enum class ScreenRoute {
+    ONBOARDING,
     HOME,
     HISTORY,
     GOAL_SETTING,
@@ -68,9 +69,11 @@ class MainActivity : ComponentActivity() {
         setContent {
             MyApplicationTheme {
                 val uiState by viewModel.uiState.collectAsState()
-                var currentRoute by remember { mutableStateOf(ScreenRoute.HOME) }
+                var currentRoute by remember {
+                    mutableStateOf(if (viewModel.uiState.value.isInitialized) ScreenRoute.HOME else ScreenRoute.ONBOARDING)
+                }
 
-                BackHandler(enabled = currentRoute != ScreenRoute.HOME) {
+                BackHandler(enabled = currentRoute != ScreenRoute.HOME && currentRoute != ScreenRoute.ONBOARDING) {
                     currentRoute = ScreenRoute.HOME
                 }
 
@@ -82,6 +85,14 @@ class MainActivity : ComponentActivity() {
 
                 Box(modifier = Modifier.fillMaxSize()) {
                     when (currentRoute) {
+                        ScreenRoute.ONBOARDING -> {
+                            OnboardingScreen(
+                                onComplete = { initialGoal ->
+                                    viewModel.completeOnboarding(initialGoal)
+                                    currentRoute = ScreenRoute.HOME
+                                }
+                            )
+                        }
                         ScreenRoute.HOME -> {
                             HomeScreen(
                                 uiState = uiState,
@@ -99,14 +110,18 @@ class MainActivity : ComponentActivity() {
                         }
                         ScreenRoute.HISTORY -> {
                             HistoryScreen(
-                                allReports = uiState.allReports,
+                                uiState = uiState,
                                 onBack = { currentRoute = ScreenRoute.HOME }
                             )
                         }
                         ScreenRoute.GOAL_SETTING -> {
                             GoalSettingScreen(
                                 uiState = uiState,
-                                onApplyGoalMode = { mode -> viewModel.applyGoalMode(mode) },
+                                onApplyGoalMode = { mode, manualAverage -> viewModel.applyGoalMode(mode, manualAverage) },
+                                onSaveNotifyTime = { hour, min ->
+                                    viewModel.saveNotifyTime(hour, min)
+                                    Reminder.enableDaily(this@MainActivity, hour, min)
+                                },
                                 onBack = { currentRoute = ScreenRoute.HOME }
                             )
                         }
@@ -115,28 +130,15 @@ class MainActivity : ComponentActivity() {
                                 uiState = uiState,
                                 onSubmitForDate = { dateStr, count -> viewModel.submitReportForDate(dateStr, count) },
                                 onInject30DaysDemo = { viewModel.inject30DaysDemoData() },
-                                onSaveNotifyTime = { hour, min ->
-                                    viewModel.saveNotifyTime(hour, min)
-                                    Reminder.enableDaily(this@MainActivity, hour, min)
-                                },
                                 onResetAll = {
                                     viewModel.resetAll()
-                                    currentRoute = ScreenRoute.HOME
+                                    currentRoute = ScreenRoute.ONBOARDING
                                 },
                                 onBack = { currentRoute = ScreenRoute.HOME }
                             )
                         }
                     }
-
-                    if (uiState.isHeavyPenaltyActive) {
-                        LaunchedEffect(Unit) {
-                            viewModel.triggerHeavyPenaltyLock()
-                        }
-                        HeavyPenaltyOverlay(
-                            remainingSeconds = uiState.remainingPenaltySeconds,
-                            onDismiss = { viewModel.clearHeavyPenaltyLock() },
-                        )
-                    }
+                    // 操作不能ロック・壁紙変更はアプリ内では発生させない(他アプリ使用時のみPenaltyWatcherServiceが表示する)
                 }
             }
         }

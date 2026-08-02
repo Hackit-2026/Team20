@@ -4,6 +4,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -23,9 +26,10 @@ import java.time.format.DateTimeFormatter
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryScreen(
-    allReports: Map<String, DailyReport>,
+    uiState: UiState,
     onBack: () -> Unit
 ) {
+    val allReports = uiState.allReports
     var selectedTab by remember { mutableIntStateOf(0) } // 0: 1週間, 1: 1ヶ月
     val today = remember { LocalDate.now() }
     val formatter = remember { DateTimeFormatter.ISO_LOCAL_DATE }
@@ -43,6 +47,7 @@ fun HistoryScreen(
     }
 
     val sortedDates = remember(allReports) { allReports.keys.sortedDescending() }
+    val pagerState = rememberPagerState(pageCount = { 2 })
 
     Scaffold(
         topBar = {
@@ -56,11 +61,131 @@ fun HistoryScreen(
             )
         }
     ) { innerPadding ->
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
                 .background(ScreenBg)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 10.dp),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                repeat(2) { index ->
+                    Box(
+                        modifier = Modifier
+                            .padding(horizontal = 4.dp)
+                            .size(if (pagerState.currentPage == index) 8.dp else 6.dp)
+                            .background(
+                                color = if (pagerState.currentPage == index) Accent else MutedSoft,
+                                shape = CircleShape
+                            )
+                    )
+                }
+            }
+
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize()
+            ) { page ->
+                if (page == 0) {
+                    HistoryListPage(
+                        selectedTab = selectedTab,
+                        onSelectedTabChange = { selectedTab = it },
+                        chartData = chartData,
+                        sortedDates = sortedDates,
+                        allReports = allReports,
+                    )
+                } else {
+                    AnalysisPage(uiState = uiState)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AnalysisPage(uiState: UiState) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Text(
+                    text = "📊 喫煙量の分析結果",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Ink
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(text = "直近1週間の重み付き平均:", fontSize = 13.sp, color = Muted)
+                    Text(
+                        text = String.format("%.1f 本/日", uiState.weightedAverage),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Accent
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(text = "今週の1日あたり平均:", fontSize = 13.sp, color = Muted)
+                    Text(
+                        text = String.format("%.1f 本/日", uiState.weeklyDailyAverage),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Ink
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(text = "現在の目標本数:", fontSize = 13.sp, color = Muted)
+                    Text(
+                        text = "${uiState.currentGoal} 本",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Accent
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HistoryListPage(
+    selectedTab: Int,
+    onSelectedTabChange: (Int) -> Unit,
+    chartData: List<Triple<String, String, Int>>,
+    sortedDates: List<String>,
+    allReports: Map<String, DailyReport>,
+) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
             // 📊 【新要件】最上部に1週間 ＆ 1ヶ月の切り替え可視化グラフを配置
@@ -89,12 +214,12 @@ fun HistoryScreen(
                         ) {
                             Tab(
                                 selected = selectedTab == 0,
-                                onClick = { selectedTab = 0 },
+                                onClick = { onSelectedTabChange(0) },
                                 text = { Text("1週間 (7日)", fontWeight = FontWeight.Bold) }
                             )
                             Tab(
                                 selected = selectedTab == 1,
-                                onClick = { selectedTab = 1 },
+                                onClick = { onSelectedTabChange(1) },
                                 text = { Text("1ヶ月 (30日)", fontWeight = FontWeight.Bold) }
                             )
                         }
@@ -164,7 +289,6 @@ fun HistoryScreen(
                 }
             }
         }
-    }
 }
 
 /**

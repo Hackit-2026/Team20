@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -14,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.myapplication.data.GoalMode
@@ -22,15 +24,18 @@ import com.example.myapplication.data.GoalMode
 @Composable
 fun GoalSettingScreen(
     uiState: UiState,
-    onApplyGoalMode: (GoalMode) -> Unit,
+    onApplyGoalMode: (GoalMode, Int?) -> Unit,
+    onSaveNotifyTime: (Int, Int) -> Unit,
     onBack: () -> Unit
 ) {
     var selectedMode by remember { mutableStateOf(GoalMode.MODE_1_GRADUAL) }
+    var averageInput by remember { mutableStateOf("") }
+    val canApply = selectedMode != GoalMode.MODE_1_GRADUAL || averageInput.toIntOrNull()?.let { it >= 0 } == true
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("🎯 段階的減煙 ＆ モード設定", fontWeight = FontWeight.Bold) },
+                title = { Text("🎯 設定", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "戻る")
@@ -56,14 +61,14 @@ fun GoalSettingScreen(
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
                     Text(
-                        text = "⚡ 目標調整モード選択 (達成が厳しい時)",
+                        text = "モード選択",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = Ink
                     )
 
                     Text(
-                        text = "達成が厳しければ、状況に合わせて以下の2つのモードを選択できます。",
+                        text = "状況に合わせてモードを選択してください。",
                         fontSize = 12.sp,
                         color = MutedSoft,
                         modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
@@ -93,19 +98,32 @@ fun GoalSettingScreen(
                             Spacer(modifier = Modifier.width(8.dp))
                             Column {
                                 Text(
-                                    text = "🌱 Mode 1: 段階的減煙モード",
+                                    text = "🌱 減煙モード",
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Ink
                                 )
                                 Text(
-                                    text = "今日の目標 = 今までの1週間平均 / 1.5 (切り捨て)\n▶ 算出目標: ${uiState.mode1Goal} 本",
+                                    text = "今の本数から少しずつ減らしていく",
                                     fontSize = 12.sp,
                                     color = Accent,
                                     fontWeight = FontWeight.Medium,
                                     modifier = Modifier.padding(top = 2.dp)
                                 )
                             }
+                        }
+
+                        if (selectedMode == GoalMode.MODE_1_GRADUAL) {
+                            OutlinedTextField(
+                                value = averageInput,
+                                onValueChange = { averageInput = it.filter { c -> c.isDigit() } },
+                                label = { Text("1日あたりの平均本数") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(start = 14.dp, end = 14.dp, bottom = 14.dp),
+                            )
                         }
                     }
 
@@ -133,13 +151,13 @@ fun GoalSettingScreen(
                             Spacer(modifier = Modifier.width(8.dp))
                             Column {
                                 Text(
-                                    text = "🚫 Mode 2: 完全禁煙固定モード",
+                                    text = "🚫 完全禁煙モード",
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Ink
                                 )
                                 Text(
-                                    text = "目標は常に 0 本にする (完全禁煙維持)\n▶ 算出目標: 0 本",
+                                    text = "0本からスタートする",
                                     fontSize = 12.sp,
                                     color = Warn,
                                     fontWeight = FontWeight.Medium,
@@ -153,9 +171,11 @@ fun GoalSettingScreen(
 
                     Button(
                         onClick = {
-                            onApplyGoalMode(selectedMode)
+                            val manualAverage = if (selectedMode == GoalMode.MODE_1_GRADUAL) averageInput.toIntOrNull() else null
+                            onApplyGoalMode(selectedMode, manualAverage)
                             onBack()
                         },
+                        enabled = canApply,
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = Accent)
                     ) {
@@ -173,55 +193,36 @@ fun GoalSettingScreen(
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
                     Text(
-                        text = "📊 喫煙量の分析結果",
+                        text = "⏰ リマインド通知時刻の設定",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = Ink
                     )
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(text = "直近1週間の重み付き平均:", fontSize = 13.sp, color = Muted)
                         Text(
-                            text = String.format("%.1f 本/日", uiState.weightedAverage),
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Accent
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(text = "今週の1日あたり平均:", fontSize = 13.sp, color = Muted)
-                        Text(
-                            text = String.format("%.1f 本/日", uiState.weeklyDailyAverage),
+                            text = "現在の時刻: ${uiState.notifyHour}時 ${uiState.notifyMinute}分",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
                             color = Ink
                         )
-                    }
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(text = "現在の目標本数:", fontSize = 13.sp, color = Muted)
-                        Text(
-                            text = "${uiState.currentGoal} 本",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Accent
-                        )
+                        Row {
+                            OutlinedButton(onClick = {
+                                val newH = (uiState.notifyHour + 1) % 24
+                                onSaveNotifyTime(newH, uiState.notifyMinute)
+                            }) { Text("時+") }
+                            Spacer(modifier = Modifier.width(4.dp))
+                            OutlinedButton(onClick = {
+                                val newM = (uiState.notifyMinute + 15) % 60
+                                onSaveNotifyTime(uiState.notifyHour, newM)
+                            }) { Text("分+") }
+                        }
                     }
                 }
             }
