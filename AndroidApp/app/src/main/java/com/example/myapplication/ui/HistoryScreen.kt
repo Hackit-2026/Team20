@@ -133,11 +133,11 @@ fun HistoryScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(text = date, color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                            Text(text = date, color = Ink, fontSize = 16.sp, fontWeight = FontWeight.Medium)
                             Text(
                                 text = if (entry.smoked) "吸った (${entry.count}本)" else "吸わなかった (0本)",
                                 color = if (entry.smoked) Warn else Accent,
-                                fontSize = 14.sp,
+                                fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         }

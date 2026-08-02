@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -123,11 +124,17 @@ fun HomeScreen(
         label = "pulseAlpha"
     )
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(currentBgColor),
+        // タブレットなど横長画面ではコンテンツを中央に寄せて読みやすくする
+        contentAlignment = Alignment.TopCenter,
+    ) {
         Column(
             modifier = modifier
-                .fillMaxSize()
-                .background(currentBgColor)
+                .widthIn(max = 560.dp)
+                .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp, vertical = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -161,7 +168,7 @@ fun HomeScreen(
                     Text(
                         text = "🚨 【警告壁紙変更完了】今週合計: ${uiState.weeklyTotal}本\nスマホのシステム壁紙がペナルティ警告壁紙に変更されました",
                         color = Color.White,
-                        fontSize = 12.sp,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center,
                         modifier = Modifier
@@ -182,7 +189,7 @@ fun HomeScreen(
             Text(
                 text = "禁煙・減煙チャレンジ",
                 color = if (isHeavyWeeklyPenalty) Color(0xFFE0B0B0) else Muted,
-                fontSize = 16.sp,
+                fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(top = 8.dp),
             )
@@ -297,7 +304,7 @@ private fun CharacterSection(stage: Int, isPenalty: Boolean) {
         Text(
             text = "成長度 $stage / 20(前日までの1ヶ月累積)",
             color = if (isPenalty) Color(0xFFD0D0D0) else MutedSoft,
-            fontSize = 12.sp,
+            fontSize = 14.sp,
             modifier = Modifier.padding(top = 6.dp),
         )
     }
@@ -400,7 +407,7 @@ private fun PermissionBanner(
     Text(
         text = "他アプリを開いた時に警告を出すための権限が未設定です",
         color = Warn,
-        fontSize = 11.sp,
+        fontSize = 13.sp,
         fontWeight = FontWeight.Bold,
     )
     Row(
@@ -434,7 +441,7 @@ private fun GoalLine(daysUntilGoal: Long, achieved: Boolean, isPenalty: Boolean)
         Text(
             text = "目標(3か月0本)まで残り${daysUntilGoal}日",
             color = if (isPenalty) Color(0xFFD0D0D0) else MutedSoft,
-            fontSize = 13.sp,
+            fontSize = 15.sp,
             modifier = Modifier.padding(top = 10.dp),
         )
     }
@@ -455,7 +462,7 @@ private fun StatusLine(report: DailyReport) {
     Text(
         text = text,
         color = color,
-        fontSize = 13.sp,
+        fontSize = 16.sp,
         fontWeight = FontWeight.Bold,
         modifier = Modifier.padding(top = 6.dp),
     )
