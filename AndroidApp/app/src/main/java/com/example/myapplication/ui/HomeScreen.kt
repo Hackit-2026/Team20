@@ -1,6 +1,7 @@
 package com.example.myapplication.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Spring
@@ -108,8 +109,9 @@ fun HomeScreen(
     val currentBgColor = if (isHeavyWeeklyPenalty) PenaltyWallpaperBg else ScreenBg
     val textColor = if (isHeavyWeeklyPenalty) Color.White else Ink
 
-    // ✨ マイナスボタンを押した際のエフェクト状態
+    // ✨ 保存時、開いた時点の本数より減っていたら演出を出す
     var showMinusEffect by remember { mutableStateOf(false) }
+    val startingCount = remember { uiState.tempCount }
 
     Box(
         modifier = Modifier
@@ -170,11 +172,14 @@ fun HomeScreen(
             CountSection(
                 tempCount = uiState.tempCount,
                 onIncrementTemp = onIncrementTemp,
-                onDecrementTemp = {
-                    onDecrementTemp()
-                    showMinusEffect = true
+                onDecrementTemp = onDecrementTemp,
+                onSaveReport = {
+                    if (uiState.tempCount < startingCount) {
+                        showMinusEffect = true
+                    }
+                    onSaveReport()
                 },
-                onSaveReport = onSaveReport,
+                isSavedToday = report.reported,
                 isPenalty = isHeavyWeeklyPenalty
             )
         }
@@ -513,6 +518,7 @@ private fun CountSection(
     onIncrementTemp: () -> Unit,
     onDecrementTemp: () -> Unit,
     onSaveReport: () -> Unit,
+    isSavedToday: Boolean,
     isPenalty: Boolean
 ) {
     Card(
@@ -520,60 +526,80 @@ private fun CountSection(
         colors = CardDefaults.cardColors(containerColor = if (isPenalty) Color(0xFF4A1525) else Color.White),
         shape = RoundedCornerShape(20.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = "何本吸いましたか？",
-                color = if (isPenalty) Color.White else Muted,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(24.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(top = 20.dp),
-            ) {
-                OutlinedButton(
-                    onClick = onDecrementTemp,
-                    modifier = Modifier.size(64.dp),
-                    shape = CircleShape,
-                    contentPadding = PaddingValues(0.dp),
-                    colors = if (isPenalty) ButtonDefaults.outlinedButtonColors(contentColor = Color.White) else ButtonDefaults.outlinedButtonColors()
+        // 保存すると次の日の0時になるまで「保存しました」のまま戻らない(uiState.today.reportedが翌日に自動でfalseに戻る)
+        Crossfade(targetState = isSavedToday, label = "countSectionSaved") { saved ->
+            if (saved) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text("−", fontSize = 26.sp)
-                }
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text(text = "$tempCount", color = if (isPenalty) Color.White else Ink, fontSize = 42.sp, fontWeight = FontWeight.Bold)
                     Text(
-                        text = "本",
-                        color = if (isPenalty) Color(0xFFD0D0D0) else Muted,
-                        fontSize = 16.sp,
-                        modifier = Modifier.padding(start = 4.dp, bottom = 6.dp),
+                        text = "✅ 保存しました",
+                        color = if (isPenalty) Color.White else Ink,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(vertical = 24.dp),
                     )
                 }
-                Button(
-                    onClick = onIncrementTemp,
-                    modifier = Modifier.size(64.dp),
-                    shape = CircleShape,
-                    colors = ButtonDefaults.buttonColors(containerColor = if (isPenalty) Color(0xFFFF6B6B) else Accent),
-                    contentPadding = PaddingValues(0.dp),
+            } else {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text("+", fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = "何本吸いましたか？",
+                        color = if (isPenalty) Color.White else Muted,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(24.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(top = 20.dp),
+                    ) {
+                        OutlinedButton(
+                            onClick = onDecrementTemp,
+                            modifier = Modifier.size(64.dp),
+                            shape = CircleShape,
+                            contentPadding = PaddingValues(0.dp),
+                            colors = if (isPenalty) ButtonDefaults.outlinedButtonColors(contentColor = Color.White) else ButtonDefaults.outlinedButtonColors()
+                        ) {
+                            Text("−", fontSize = 26.sp)
+                        }
+                        Row(verticalAlignment = Alignment.Bottom) {
+                            Text(text = "$tempCount", color = if (isPenalty) Color.White else Ink, fontSize = 42.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                text = "本",
+                                color = if (isPenalty) Color(0xFFD0D0D0) else Muted,
+                                fontSize = 16.sp,
+                                modifier = Modifier.padding(start = 4.dp, bottom = 6.dp),
+                            )
+                        }
+                        Button(
+                            onClick = onIncrementTemp,
+                            modifier = Modifier.size(64.dp),
+                            shape = CircleShape,
+                            colors = ButtonDefaults.buttonColors(containerColor = if (isPenalty) Color(0xFFFF6B6B) else Accent),
+                            contentPadding = PaddingValues(0.dp),
+                        ) {
+                            Text("+", fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    Button(
+                        onClick = onSaveReport,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 24.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = if (isPenalty) Color(0xFFFF4D4D) else Ink),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("保存", fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 4.dp))
+                    }
                 }
-            }
-            Button(
-                onClick = onSaveReport,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 24.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = if (isPenalty) Color(0xFFFF4D4D) else Ink),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text("保存", fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 4.dp))
             }
         }
     }
