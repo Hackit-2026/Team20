@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>中間発表 - 禁煙・減煙チャレンジ | Team20 Yo Say 酒場</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #16181d;
+    --panel: #20242b;
+    --ink: #eceff4;
+    --muted: #9aa1ab;
+    --accent: #4fd1c5;
+    --warn: #ff6b6b;
+    --yani: #d4a94e;
+  }
+  html, body { height: 100%; background: var(--bg); color: var(--ink);
+    font-family: "Yu Gothic UI", "Hiragino Sans", "Noto Sans JP", sans-serif; overflow: hidden; }
+
+  .slide {
+    display: none; position: absolute; inset: 0;
+    padding: 7vh 8vw; flex-direction: column; justify-content: center;
+  }
+  .slide.active { display: flex; }
+
+  h1 { font-size: 5.2vw; line-height: 1.25; margin-bottom: 3vh; }
+  h2 { font-size: 3.6vw; margin-bottom: 4vh; border-left: 0.6vw solid var(--accent); padding-left: 1.5vw; }
+  p, li { font-size: 2.1vw; line-height: 1.8; color: var(--ink); }
+  ul { list-style: none; }
+  li { margin-bottom: 1.6vh; padding-left: 2.4vw; position: relative; }
+  li::before { content: "▸"; color: var(--accent); position: absolute; left: 0.5vw; }
+  .muted { color: var(--muted); }
+  .accent { color: var(--accent); }
+  .warn { color: var(--warn); }
+  .yani { color: var(--yani); }
+  .small { font-size: 1.6vw; }
+  .center { text-align: center; }
+
+  .cards { display: flex; gap: 2vw; margin-top: 2vh; }
+  .card {
+    flex: 1; background: var(--panel); border-radius: 1.2vw; padding: 3vh 1.8vw;
+    border-top: 0.4vh solid var(--accent);
+  }
+  .card.red { border-top-color: var(--warn); }
+  .card.gold { border-top-color: var(--yani); }
+  .card h3 { font-size: 2vw; margin-bottom: 1.5vh; }
+  .card p, .card li { font-size: 1.55vw; line-height: 1.7; }
+
+  .stagebar { display: flex; justify-content: space-between; align-items: flex-end;
+    background: var(--panel); border-radius: 1.2vw; padding: 3vh 3vw; margin-top: 3vh; }
+  .stage { text-align: center; }
+  .stage .emoji { font-size: 5vw; display: block; }
+  .stage .label { font-size: 1.3vw; color: var(--muted); margin-top: 1vh; display: block; }
+  .arrow { font-size: 3vw; color: var(--warn); align-self: center; }
+
+  .flow { display: flex; align-items: center; gap: 1.2vw; margin-top: 3vh; flex-wrap: wrap; }
+  .flow .step { background: var(--panel); border-radius: 1vw; padding: 2vh 1.6vw; font-size: 1.7vw; }
+  .flow .fa { color: var(--accent); font-size: 2vw; }
+
+  table { border-collapse: collapse; width: 100%; margin-top: 2vh; }
+  th, td { padding: 1.6vh 1.5vw; font-size: 1.8vw; text-align: left; border-bottom: 1px solid #333a45; }
+  th { color: var(--accent); font-size: 1.6vw; }
+  td.done { color: var(--accent); }
+  td.todo { color: var(--yani); }
+
+  .footer {
+    position: fixed; bottom: 2vh; right: 3vw; color: var(--muted);
+    font-size: 1.3vw; user-select: none;
+  }
+  .pagenum { position: fixed; bottom: 2vh; left: 3vw; color: var(--muted); font-size: 1.3vw; }
+  .hint { position: fixed; top: 2vh; right: 3vw; color: #4a505a; font-size: 1.1vw; }
+
+  .titlebadge {
+    display: inline-block; background: var(--panel); color: var(--accent);
+    border-radius: 999px; padding: 1vh 2.5vw; font-size: 1.7vw; margin-bottom: 4vh;
+    border: 1px solid #333a45;
+  }
+  .bigemoji { font-size: 9vw; margin: 2vh 0; }
+</style>
+</head>
+<body>
+
+<!-- 1. タイトル -->
+<section class="slide active center">
+  <div><span class="titlebadge">Hackit 2026 ─ Team20「Yo Say 酒場」中間発表</span></div>
+  <h1>吸うほどキャラが<span class="warn">ヤニ化</span>する。<br>反面教師型 禁煙・減煙アプリ</h1>
+  <p class="bigemoji">😊 → 😮‍💨 → 😵 → 👹</p>
+  <p class="muted">「やめろ」と言わない禁煙アプリ ─ 鏡を置くだけ。</p>
+</section>
+
+<!-- 2. 背景・課題 -->
+<section class="slide">
+  <h2>背景・課題</h2>
+  <ul>
+    <li>禁煙アプリは山ほどある。でも <span class="warn">「やめろ」と言われて人はやめない</span></li>
+    <li>説教・我慢の強制は続かない。三日坊主の温床</li>
+    <li>喫煙量は「数字」で見てもピンとこない</li>
+  </ul>
+  <div class="cards">
+    <div class="card gold">
+      <h3>💡 発想の転換</h3>
+      <p>なりたくない自分を<strong>キャラクターとして見せる</strong>。説教しない。ただ、鏡を置くだけ。</p>
+    </div>
+  </div>
+</section>
+
+<!-- 3. コンセプト -->
+<section class="slide">
+  <h2>コンセプト:反面教師育成ゲーム</h2>
+  <ul>
+    <li>毎日「今日吸った本数」を申告するだけ</li>
+    <li>吸うほどキャラが汚れ、モンスターへと堕ちていく</li>
+    <li>我慢すればキャラは綺麗なまま ─ <span class="accent">あなたの分身です</span></li>
+  </ul>
+  <div class="stagebar">
+    <div class="stage"><span class="emoji">😊</span><span class="label">Stage 0<br>健康</span></div>
+    <div class="arrow">→</div>
+    <div class="stage"><span class="emoji">😮‍💨</span><span class="label">〜5本<br>ヤニ初心者</span></div>
+    <div class="arrow">→</div>
+    <div class="stage"><span class="emoji">😵</span><span class="label">〜15本<br>ヘビースモーカー</span></div>
+    <div class="arrow">→</div>
+    <div class="stage"><span class="emoji">👹</span><span class="label">20本〜<br>ヤニモンスター</span></div>
+  </div>
+  <p class="small muted" style="margin-top:2vh">実際のアプリでは前日〜1ヶ月の累積本数で <strong>21段階</strong> に変化(1本 = 1段階)</p>
+</section>
+
+<!-- 4. 実装済み機能 -->
+<section class="slide">
+  <h2>実装済みの主な機能</h2>
+  <div class="cards">
+    <div class="card">
+      <h3>🐣 キャラ育成</h3>
+      <ul>
+        <li>21段階の姿変化</li>
+        <li>タップで喋る(段階でセリフ変化)</li>
+        <li>羽ばたきアニメーション</li>
+      </ul>
+    </div>
+    <div class="card red">
+      <h3>🚨 ペナルティ</h3>
+      <ul>
+        <li>スマホの壁紙を強制変更</li>
+        <li>60秒操作ロック画面</li>
+        <li>他アプリ起動時も警告が追跡</li>
+      </ul>
+    </div>
+    <div class="card gold">
+      <h3>📊 記録と可視化</h3>
+      <ul>
+        <li>ワンタップ本数申告</li>
+        <li>週/月の棒グラフ</li>
+        <li>🚬を並べるピクトグラム表示</li>
+      </ul>
+    </div>
+  </div>
+  <div class="cards">
+    <div class="card">
+      <h3>⏰ リマインダー通知</h3>
+      <p>毎日指定時刻に記録を促す通知。時刻はユーザーが自由に設定可能。</p>
+    </div>
+    <div class="card">
+      <h3>🎯 目標の段階的削減</h3>
+      <p>今週の平均から次の目標本数を自動計算。無理なく減らしていく設計。</p>
+    </div>
+  </div>
+</section>
+
+<!-- 5. デモ -->
+<section class="slide">
+  <h2>デモ(ここで実演)</h2>
+  <div class="flow">
+    <div class="step">📱 本数を申告</div><span class="fa">→</span>
+    <div class="step">🐣 キャラがその場で悪化</div><span class="fa">→</span>
+    <div class="step">🚨 ペナルティ発動<br><span class="small muted">壁紙変更+ロック画面</span></div><span class="fa">→</span>
+    <div class="step">📊 履歴で🚬がズラリ</div>
+  </div>
+  <ul style="margin-top:4vh">
+    <li>キャラをタップ → <span class="accent">「毎日吸ってなくてうれしいよ!」</span></li>
+    <li>モンスター化後にタップ → <span class="warn">「…まだ、戻れるかな…?」</span></li>
+    <li>テスト通知ボタンで発表中にその場で通知を鳴らします</li>
+  </ul>
+</section>
+
+<!-- 6. 技術スタック -->
+<section class="slide">
+  <h2>技術スタック</h2>
+  <table>
+    <tr><th>領域</th><th>技術</th><th>ポイント</th></tr>
+    <tr><td>アプリ</td><td>Kotlin / Jetpack Compose</td><td>宣言的UIで画面を高速に試作</td></tr>
+    <tr><td>設計</td><td>MVVM + Repository</td><td>ロジック・データ・UIを分離</td></tr>
+    <tr><td>データ</td><td>SharedPreferences + JSON</td><td>DB不要のシンプル永続化</td></tr>
+    <tr><td>通知</td><td>AlarmManager + BroadcastReceiver</td><td>毎日指定時刻に正確に発火</td></tr>
+    <tr><td>ペナルティ</td><td>WallpaperManager / オーバーレイ</td><td>アプリの外まで追いかける</td></tr>
+    <tr><td>検証</td><td>エミュレータ + 実機タブレット</td><td>Galaxy Tab S7で動作確認</td></tr>
+  </table>
+</section>
+
+<!-- 7. 開発の進め方 -->
+<section class="slide">
+  <h2>チーム開発の進め方</h2>
+  <div class="cards">
+    <div class="card">
+      <h3>👥 役割分担</h3>
+      <ul>
+        <li><strong>A</strong>: コアロジック・データ・Git管理</li>
+        <li><strong>B</strong>: 画面UI・キャラデザイン</li>
+        <li><strong>C</strong>: 通知機能・発表</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>🌿 GitHubフロー</h3>
+      <ul>
+        <li>ブランチを切って開発 → PR → マージ</li>
+        <li>プッシュ前に必ずプル</li>
+        <li>他人の担当ファイルは触らない</li>
+      </ul>
+    </div>
+  </div>
+  <p class="small muted" style="margin-top:3vh">初日からコミット100件超。互いの機能を取り込み合いながら開発中(例:Cのキャラ表示 × Bの羽ばたきアニメ)</p>
+</section>
+
+<!-- 8. 進捗状況 -->
+<section class="slide">
+  <h2>進捗状況</h2>
+  <table>
+    <tr><th>項目</th><th>状態</th></tr>
+    <tr><td>本数申告・データ保存</td><td class="done">✅ 完了</td></tr>
+    <tr><td>21段階キャラ育成+タップ反応</td><td class="done">✅ 完了</td></tr>
+    <tr><td>ペナルティ(壁紙・ロック・オーバーレイ)</td><td class="done">✅ 完了</td></tr>
+    <tr><td>履歴グラフ・ピクトグラム</td><td class="done">✅ 完了</td></tr>
+    <tr><td>リマインダー通知</td><td class="done">✅ 完了</td></tr>
+    <tr><td>実機(タブレット)動作確認</td><td class="done">✅ 完了</td></tr>
+    <tr><td>ペナルティ中にキャラが邪魔する演出</td><td class="todo">🔨 開発中</td></tr>
+    <tr><td>デザイン最終調整・リハーサル</td><td class="todo">🔜 これから</td></tr>
+  </table>
+</section>
+
+<!-- 9. 今後の展望 -->
+<section class="slide">
+  <h2>今後の展望</h2>
+  <ul>
+    <li><span class="warn">キャラの妨害演出</span> ─ ペナルティ中、キャラがロック画面で暴れ回る</li>
+    <li><span class="accent">回復システム</span> ─ 吸わない日が続くとキャラが健康に戻っていく(希望を見せる)</li>
+    <li>節約金額の表示 ─ 「我慢したタバコ代でラーメン◯杯」</li>
+    <li>キャラによる通知ジャック ─ 姿に応じて通知の口調が変わる</li>
+  </ul>
+  <div class="cards" style="margin-top:3vh">
+    <div class="card gold">
+      <h3>ゴール</h3>
+      <p>「禁煙を強制しないのに、気づいたら吸う本数が減っている」体験の完成</p>
+    </div>
+  </div>
+</section>
+
+<!-- 10. まとめ -->
+<section class="slide center">
+  <h1 style="font-size:4vw">説教しないアプリです。<br><span class="accent">ただ、鏡を置くだけ。</span></h1>
+  <p class="bigemoji">👹 ← 🚬 ← 😊</p>
+  <p class="muted">Team20「Yo Say 酒場」 ─ ご清聴ありがとうございました</p>
+</section>
+
+<div class="pagenum"><span id="cur">1</span> / <span id="total">?</span></div>
+<div class="footer">Hackit 2026 ─ Team20 Yo Say 酒場</div>
+<div class="hint">← → キーまたはクリックで移動 / Fキーで全画面</div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  let idx = 0;
+  document.getElementById('total').textContent = slides.length;
+
+  function show(i) {
+    idx = Math.max(0, Math.min(slides.length - 1, i));
+    slides.forEach((s, n) => s.classList.toggle('active', n === idx));
+    document.getElementById('cur').textContent = idx + 1;
+  }
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') show(idx + 1);
+    if (e.key === 'ArrowLeft' || e.key === 'PageUp') show(idx - 1);
+    if (e.key === 'f' || e.key === 'F') document.documentElement.requestFullscreen?.();
+  });
+  document.addEventListener('click', e => {
+    // 画面の左1/4クリックで戻る、それ以外は進む
+    (e.clientX < window.innerWidth / 4) ? show(idx - 1) : show(idx + 1);
+  });
+</script>
+</body>
+</html>
