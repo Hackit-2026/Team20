@@ -82,8 +82,8 @@ class MainViewModel(private val repo: AppRepo) : ViewModel() {
         refreshState()
     }
 
-    fun applyGoalMode(mode: GoalMode) {
-        repo.applyGoalMode(mode)
+    fun applyGoalMode(mode: GoalMode, manualAverage: Int? = null) {
+        repo.applyGoalMode(mode, manualAverage)
         refreshState()
     }
 

@@ -110,14 +110,14 @@ class MainActivity : ComponentActivity() {
                         }
                         ScreenRoute.HISTORY -> {
                             HistoryScreen(
-                                allReports = uiState.allReports,
+                                uiState = uiState,
                                 onBack = { currentRoute = ScreenRoute.HOME }
                             )
                         }
                         ScreenRoute.GOAL_SETTING -> {
                             GoalSettingScreen(
                                 uiState = uiState,
-                                onApplyGoalMode = { mode -> viewModel.applyGoalMode(mode) },
+                                onApplyGoalMode = { mode, manualAverage -> viewModel.applyGoalMode(mode, manualAverage) },
                                 onSaveNotifyTime = { hour, min ->
                                     viewModel.saveNotifyTime(hour, min)
                                     Reminder.enableDaily(this@MainActivity, hour, min)

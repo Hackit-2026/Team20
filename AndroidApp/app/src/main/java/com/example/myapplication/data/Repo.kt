@@ -74,11 +74,12 @@ class AppRepo(context: Context) {
     }
 
     /**
-     * 🎯 2つの目標調整モードの適用
+     * 🎯 2つの目標調整モードの適用。
+     * 減煙モードはユーザーが入力した1日あたりの平均本数を新しい目標にする(未入力時は算出値にフォールバック)。
      */
-    fun applyGoalMode(mode: GoalMode) {
+    fun applyGoalMode(mode: GoalMode, manualAverage: Int? = null) {
         val nextGoal = when (mode) {
-            GoalMode.MODE_1_GRADUAL -> calculateMode1Goal()
+            GoalMode.MODE_1_GRADUAL -> manualAverage?.coerceAtLeast(0) ?: calculateMode1Goal()
             GoalMode.MODE_2_ZERO -> 0
         }
         val data = loadData()
