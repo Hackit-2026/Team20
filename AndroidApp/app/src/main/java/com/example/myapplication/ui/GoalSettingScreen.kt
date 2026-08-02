@@ -17,17 +17,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.myapplication.data.GoalMode
-import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GoalSettingScreen(
     uiState: UiState,
-    onApplyNextGoal: (Double) -> Unit,
     onApplyGoalMode: (GoalMode) -> Unit,
     onBack: () -> Unit
 ) {
-    var difficulty by remember { mutableDoubleStateOf(1.5) }
     var selectedMode by remember { mutableStateOf(GoalMode.MODE_1_GRADUAL) }
 
     Scaffold(
@@ -51,7 +48,7 @@ fun GoalSettingScreen(
                 .padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // 🚨 【新要件】目標達成が厳しければ2つのModeから選択
+            // 🎯 【目標調整モード選択】
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -152,7 +149,7 @@ fun GoalSettingScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     Button(
                         onClick = {
@@ -225,89 +222,6 @@ fun GoalSettingScreen(
                             fontWeight = FontWeight.Bold,
                             color = Accent
                         )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Text(
-                        text = "⚙️ カスタムきつさ（難易度）の設定",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = Ink
-                    )
-
-                    Text(
-                        text = "計算式: 次の目標 = floor(今週平均 / きつさ)\n範囲: 1.2 ～ 20.0 の間で選択可能",
-                        fontSize = 12.sp,
-                        color = MutedSoft,
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Text(
-                        text = "きつさの値: ${String.format("%.1f", difficulty)}",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Accent
-                    )
-
-                    Slider(
-                        value = difficulty.toFloat(),
-                        onValueChange = { newValue ->
-                            val rounded = (newValue * 10).roundToInt() / 10.0
-                            difficulty = rounded.coerceIn(1.2, 20.0)
-                        },
-                        valueRange = 1.2f..20.0f,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    val calculatedNext = if (uiState.currentGoal <= 0) 0 
-                                         else kotlin.math.floor(uiState.weeklyDailyAverage / difficulty).toInt().coerceIn(0, uiState.currentGoal)
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = ScreenBg),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(text = "計算後の次回目標:", fontSize = 14.sp, color = Ink)
-                            Text(
-                                text = "${calculatedNext} 本",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (calculatedNext == 0) Accent else Ink
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Button(
-                        onClick = {
-                            onApplyNextGoal(difficulty)
-                            onBack()
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = Accent)
-                    ) {
-                        Text("カスタムきつさ目標を適用して戻る")
                     }
                 }
             }

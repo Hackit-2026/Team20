@@ -106,7 +106,6 @@ class MainActivity : ComponentActivity() {
                         ScreenRoute.GOAL_SETTING -> {
                             GoalSettingScreen(
                                 uiState = uiState,
-                                onApplyNextGoal = { difficulty -> viewModel.applyNextGoal(difficulty) },
                                 onApplyGoalMode = { mode -> viewModel.applyGoalMode(mode) },
                                 onBack = { currentRoute = ScreenRoute.HOME }
                             )
