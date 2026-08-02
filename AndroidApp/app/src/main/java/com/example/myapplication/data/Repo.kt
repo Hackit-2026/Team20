@@ -120,7 +120,8 @@ class AppRepo(context: Context) {
         val data = loadData()
         val now = System.currentTimeMillis()
         if (data.heavyPenaltyLockUntil < now && data.penaltyDismissedUntil < now) {
-            saveData(data.copy(heavyPenaltyLockUntil = now + 60_000L))
+            // デバッグ用に10秒に短縮中(本番は 60_000L = 60秒に戻す)
+            saveData(data.copy(heavyPenaltyLockUntil = now + 10_000L))
         }
     }
 

@@ -35,9 +35,12 @@ private val LightColorScheme = lightColorScheme(
 
 @Composable
 fun MyApplicationTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
+    // アプリ全体が明るい背景+白カード前提のデザインのため、
+    // 端末のダークモード設定に関わらずライトテーマに固定する
+    // (ダークモード端末で入力欄などの文字が白くなり読めなくなる問題の対策)
+    darkTheme: Boolean = false,
+    // 端末ごとに色味が変わらないよう動的カラーも無効化
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
