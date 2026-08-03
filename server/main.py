@@ -19,7 +19,7 @@ SCHEMA_PATH = os.path.join(os.path.dirname(__file__), "schema.sql")
 app = FastAPI(
     title="ヤニモグラ (YANI-GOTCHI) バックエンドサーバー",
     description="SQLite SQL データベース & LM Studio (google/gemma-4-12b-qat) 連携サーバー",
-    version="2.8.0"
+    version="2.6.0"
 )
 
 # CORS設定（すべてのIPからのアクセス許可）
@@ -32,10 +32,10 @@ app.add_middleware(
 )
 
 LM_STUDIO_BASE_URLS = [
-    "http://127.0.0.1:11434",
-    "http://localhost:11434",
     "http://192.168.25.42:11434",
-    "http://172.0.0.1:11434"
+    "http://172.0.0.1:11434",
+    "http://127.0.0.1:11434",
+    "http://localhost:11434"
 ]
 
 MODEL_CANDIDATES = [
@@ -121,7 +121,7 @@ PERSONA_CONFIGS = [
 async def get_active_lm_studio_model(base_url: str) -> Optional[str]:
     models_url = f"{base_url}/v1/models"
     try:
-        async with httpx.AsyncClient(timeout=0.8) as client:
+        async with httpx.AsyncClient(timeout=3.0) as client:
             res = await client.get(models_url)
             if res.status_code == 200:
                 data = res.json()
@@ -140,12 +140,11 @@ async def fetch_llm_comment(persona: dict, user_text: str) -> str:
     for base_url in LM_STUDIO_BASE_URLS:
         endpoint_url = f"{base_url}/v1/chat/completions"
         active_model = await get_active_lm_studio_model(base_url)
-        if not active_model:
-            continue
-            
-        models_to_try = [active_model] + MODEL_CANDIDATES
+        models_to_try = [active_model] + MODEL_CANDIDATES if active_model else MODEL_CANDIDATES
 
         for model_name in models_to_try:
+            if not model_name:
+                continue
             payload = {
                 "model": model_name,
                 "messages": messages,
@@ -154,32 +153,24 @@ async def fetch_llm_comment(persona: dict, user_text: str) -> str:
             }
 
             try:
-                async with httpx.AsyncClient(timeout=10.0) as client:
-                    logger.info(f"Sending request to LM Studio ({base_url}) for {persona['name']}...")
+                async with httpx.AsyncClient(timeout=12.0) as client:
+                    logger.info(f"Sending request to LM Studio ({endpoint_url}) for {persona['name']}...")
                     response = await client.post(endpoint_url, json=payload)
                     if response.status_code == 200:
                         data = response.json()
-                        raw_content = ""
-                        choices = data.get("choices", [])
-                        if choices:
-                            msg = choices[0].get("message", {})
-                            raw_content = msg.get("content", "") or ""
-                        
-                        cleaned = raw_content.replace("AI", "").replace("人工知能", "").strip()
-                        # 🚨 空文字でなければそれを採用！空ならフォールバックへ回す
-                        if cleaned and len(cleaned) > 0:
-                            logger.info(f"✅ Generated valid comment for {persona['name']}: {cleaned}")
-                            return cleaned
+                        content = data["choices"][0]["message"]["content"].strip()
+                        cleaned = content.replace("AI", "").replace("人工知能", "").strip()
+                        logger.info(f"✅ Generated comment for {persona['name']}: {cleaned}")
+                        return cleaned
             except Exception as e:
                 logger.warning(f"Failed connecting to LM Studio for {persona['name']}: {e}")
 
-    # 🚨 空文字防止保障: 必ず実在するテキストを返す！
     fallback = random.choice(persona["fallback_templates"])
-    logger.info(f"✅ Fallback comment guaranteed for {persona['name']}: {fallback}")
+    logger.info(f"Fallback comment used for {persona['name']}: {fallback}")
     return fallback
 
 async def generate_and_save_bg_comments(post_id: str, text: str, timestamp: str):
-    """バックグラウンドタスク: LM Studio からコメントを生成し、SQL DB へ確実に保存"""
+    """バックグラウンドタスク: LM Studio からコメントを生成し、SQL DB へ保存"""
     logger.info(f"🚀 AI comment generation background task started for post_id: {post_id}")
     try:
         tasks = [fetch_llm_comment(persona, text) for persona in PERSONA_CONFIGS]
@@ -190,46 +181,16 @@ async def generate_and_save_bg_comments(post_id: str, text: str, timestamp: str)
         
         for i, persona in enumerate(PERSONA_CONFIGS):
             comment_text = results[i]
-            # 🚨 万一空文字が渡ってきた場合のセーフティガード
-            if not comment_text or len(comment_text.strip()) == 0:
-                comment_text = random.choice(persona["fallback_templates"])
-                
             cursor.execute(
                 "INSERT INTO comments (post_id, name, avatar, comment, timestamp) VALUES (?, ?, ?, ?, ?)",
                 (post_id, persona["name"], persona["avatar"], comment_text, timestamp)
             )
-            logger.info(f"   -> DB Inserted: {persona['avatar']} {persona['name']}: '{comment_text}'")
         
         conn.commit()
         conn.close()
-        logger.info(f"🎉 Successfully saved 4 non-empty comments into SQL DB for post_id: {post_id}")
+        logger.info(f"🎉 Successfully saved 4 comments into SQL DB for post_id: {post_id}")
     except Exception as e:
         logger.error(f"❌ Error generating background comments for post_id {post_id}: {e}", exc_info=True)
-
-def fix_empty_comments_in_db():
-    """DB内に過去作られた空文字コメントを一気に補完クリーンアップ"""
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-        cursor.execute("SELECT comment_id, name FROM comments WHERE comment IS NULL OR comment = ''")
-        empty_rows = cursor.fetchall()
-        
-        for row in empty_rows:
-            c_id, name = row
-            # ペルソナを特定して非空文言を充当
-            matched_persona = next((p for p in PERSONA_CONFIGS if p["name"] == name), PERSONA_CONFIGS[0])
-            new_comment = random.choice(matched_persona["fallback_templates"])
-            cursor.execute("UPDATE comments SET comment = ? WHERE comment_id = ?", (new_comment, c_id))
-            
-        conn.commit()
-        conn.close()
-        if len(empty_rows) > 0:
-            logger.info(f"🧹 Cleaned and updated {len(empty_rows)} legacy empty comments in SQL DB!")
-    except Exception as e:
-        logger.error(f"Error cleaning DB: {e}")
-
-# 起動時に過去の空文字コメントを完全自動リペア！
-fix_empty_comments_in_db()
 
 def get_all_posts_from_db() -> List[Post]:
     conn = sqlite3.connect(DB_PATH)
@@ -244,7 +205,7 @@ def get_all_posts_from_db() -> List[Post]:
         cursor.execute("SELECT name, avatar, comment FROM comments WHERE post_id = ? ORDER BY comment_id ASC", (post_id,))
         comment_rows = cursor.fetchall()
         
-        comments = [MemberComment(name=r[0], avatar=r[1], comment=r[2]) for r in comment_rows if r[2] and len(r[2].strip()) > 0]
+        comments = [MemberComment(name=r[0], avatar=r[1], comment=r[2]) for r in comment_rows]
         posts_list.append(
             Post(
                 postId=post_id,

@@ -17,6 +17,7 @@ object Reminder {
     private const val REQ_DAILY = 1001
     private const val REQ_TEST = 1002
     private const val PREFS = "reminder_prefs"
+    private const val NOTIF_REMINDER = 1
 
     // ── 設定の保存・読み出し(SharedPreferences = アプリ専用の小さな保存領域) ──
 
@@ -48,12 +49,12 @@ object Reminder {
         )
         val notif = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle("今日は何本吸った?")
-            .setContentText("記録してキャラを観察しよう!")
+            .setContentTitle("今日の申告がまだです")
+            .setContentText("タバコを吸ったかどうか、記録しておこう")
             .setContentIntent(tap)
             .setAutoCancel(true)
             .build()
-        context.getSystemService(NotificationManager::class.java).notify(1, notif)
+        context.getSystemService(NotificationManager::class.java).notify(NOTIF_REMINDER, notif)
     }
 
     // ── n秒後に通知(発表用テスト通知) ──

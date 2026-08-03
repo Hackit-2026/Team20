@@ -1,89 +1,166 @@
 package com.example.myapplication.ui
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.myapplication.ui.theme.MyApplicationTheme
 
-private val periodOptions = listOf(3 to "3日間", 7 to "1週間", 14 to "2週間", 30 to "1ヶ月")
+private enum class OnboardingMode { REDUCE, QUIT }
 
+/**
+ * 初回起動時の最初の画面。減煙モード/完全禁煙モードの2択を表示する。
+ * 減煙モード: 1日あたりの平均本数を入力させ、それを初期目標にする。
+ * 完全禁煙モード: 入力なしで初期目標を0本にする。
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun OnboardingScreen(
-    onStart: (days: Int, dailyGoal: Int) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    var selectedDays by remember { mutableIntStateOf(7) }
-    // 初期値を 10本 に設定
-    var dailyGoal by remember { mutableIntStateOf(10) }
+fun OnboardingScreen(onComplete: (initialDailyGoal: Int) -> Unit) {
+    var selectedMode by remember { mutableStateOf<OnboardingMode?>(null) }
+    var averageInput by remember { mutableStateOf("") }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text("チャレンジ期間を選択", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.padding(top = 16.dp),
+    val canStart = when (selectedMode) {
+        OnboardingMode.REDUCE -> averageInput.toIntOrNull()?.let { it >= 0 } == true
+        OnboardingMode.QUIT -> true
+        null -> false
+    }
+
+    Scaffold { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .background(ScreenBg)
+                .verticalScroll(rememberScrollState())
+                .padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            periodOptions.forEach { (days, label) ->
-                FilterChip(
-                    selected = selectedDays == days,
-                    onClick = { selectedDays = days },
-                    label = { Text(label) },
-                )
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Text(
+                text = "ヤニモグラ",
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
+                color = Ink,
+            )
+            Text(
+                text = "まずはどちらのモードで始めますか？",
+                fontSize = 14.sp,
+                color = Muted,
+                modifier = Modifier.padding(top = 8.dp, bottom = 24.dp),
+            )
+
+            // 減煙モード
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp)
+                    .clickable { selectedMode = OnboardingMode.REDUCE },
+                colors = CardDefaults.cardColors(
+                    containerColor = if (selectedMode == OnboardingMode.REDUCE) Color(0xFFE8F5E9) else Color.White
+                ),
+                shape = RoundedCornerShape(16.dp),
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(
+                            selected = selectedMode == OnboardingMode.REDUCE,
+                            onClick = { selectedMode = OnboardingMode.REDUCE },
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = "🌱 減煙モード",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Ink,
+                            )
+                            Text(
+                                text = "今の本数から少しずつ減らしていく",
+                                fontSize = 12.sp,
+                                color = MutedSoft,
+                            )
+                        }
+                    }
+
+                    if (selectedMode == OnboardingMode.REDUCE) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value = averageInput,
+                            onValueChange = { averageInput = it.filter { c -> c.isDigit() } },
+                            label = { Text("1日あたりの平均本数") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
+            }
+
+            // 完全禁煙モード
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp)
+                    .clickable { selectedMode = OnboardingMode.QUIT },
+                colors = CardDefaults.cardColors(
+                    containerColor = if (selectedMode == OnboardingMode.QUIT) Color(0xFFFFEBEE) else Color.White
+                ),
+                shape = RoundedCornerShape(16.dp),
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    RadioButton(
+                        selected = selectedMode == OnboardingMode.QUIT,
+                        onClick = { selectedMode = OnboardingMode.QUIT },
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column {
+                        Text(
+                            text = "🚫 完全禁煙モード",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Ink,
+                        )
+                        Text(
+                            text = "0本からスタートする",
+                            fontSize = 12.sp,
+                            color = MutedSoft,
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Button(
+                onClick = {
+                    val goal = when (selectedMode) {
+                        OnboardingMode.REDUCE -> averageInput.toIntOrNull() ?: 0
+                        OnboardingMode.QUIT -> 0
+                        null -> 0
+                    }
+                    onComplete(goal)
+                },
+                enabled = canStart,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = Accent),
+            ) {
+                Text("はじめる", fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
         }
-
-        Text("1日の目標本数", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 40.dp))
-        Text("初期値: 10本（お好みの設定本数に調整してください）", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary, modifier = Modifier.padding(top = 4.dp))
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(24.dp),
-            modifier = Modifier.padding(top = 16.dp),
-        ) {
-            OutlinedButton(onClick = { if (dailyGoal > 0) dailyGoal-- }) { Text("-", fontSize = 24.sp) }
-            Text("${dailyGoal}本", style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Bold)
-            OutlinedButton(onClick = { dailyGoal++ }) { Text("+", fontSize = 24.sp) }
-        }
-
-        Button(
-            onClick = { onStart(selectedDays, dailyGoal) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 48.dp),
-        ) {
-            Text("目標を設定してスタート", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-        }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun OnboardingScreenPreview() {
-    MyApplicationTheme {
-        OnboardingScreen(onStart = { _, _ -> })
     }
 }
