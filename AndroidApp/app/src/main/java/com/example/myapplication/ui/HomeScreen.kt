@@ -58,7 +58,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.myapplication.data.DailyReport
 import com.example.myapplication.ui.theme.MyApplicationTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -157,8 +156,6 @@ fun HomeScreen(
             )
 
             GoalLine(daysUntilGoal = uiState.daysUntilGoal, achieved = uiState.goalAchieved, isPenalty = isHeavyWeeklyPenalty)
-
-            StatusLine(report)
 
             // 🐣 21段階成長キャラクター(前日〜1ヶ月の累積本数で変化、タップで反応)
             CharacterSection(stage = uiState.characterStage, isPenalty = isHeavyWeeklyPenalty)
@@ -464,27 +461,6 @@ private fun GoalLine(daysUntilGoal: Long, achieved: Boolean, isPenalty: Boolean)
 }
 
 @Composable
-private fun StatusLine(report: DailyReport) {
-    val text = when {
-        !report.reported -> "本日の申告: まだです"
-        report.smoked -> "本日の申告: 吸った(${report.count}本) ・ ペナルティ中"
-        else -> "本日の申告: 吸わなかった"
-    }
-    val color = when {
-        !report.reported -> MutedSoft
-        report.smoked -> Warn
-        else -> Accent
-    }
-    Text(
-        text = text,
-        color = color,
-        fontSize = 16.sp,
-        fontWeight = FontWeight.Bold,
-        modifier = Modifier.padding(top = 6.dp),
-    )
-}
-
-@Composable
 private fun CountSection(
     tempCount: Int,
     onIncrementTemp: () -> Unit,
@@ -512,7 +488,13 @@ private fun CountSection(
                         color = if (isPenalty) Color.White else Ink,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(vertical = 24.dp),
+                        modifier = Modifier.padding(top = 24.dp),
+                    )
+                    Text(
+                        text = "また明日も記録してくださいね",
+                        color = if (isPenalty) Color(0xFFD0D0D0) else Muted,
+                        fontSize = 14.sp,
+                        modifier = Modifier.padding(top = 8.dp, bottom = 24.dp),
                     )
                 }
             } else {
