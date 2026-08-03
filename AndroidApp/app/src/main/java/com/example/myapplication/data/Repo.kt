@@ -116,12 +116,30 @@ class AppRepo(context: Context) {
         saveData(data.copy(notifyHour = hour, notifyMinute = minute))
     }
 
-    fun triggerHeavyPenaltyLock() {
+    fun getPenaltyIntervalMs(count: Int): Long {
+        return when {
+            count >= 20 -> 30_000L // 20本以上: 30秒ごとにスマホ使用不可
+            count in 1..5 -> 2 * 3600 * 1000L // 5本まで: 2時間ごとにスマホ使用不可
+            count > 5 -> {
+                val ratio = (count - 5).toDouble() / (20 - 5)
+                val twoHoursMs = 2 * 3600 * 1000L
+                val thirtySecMs = 30_000L
+                (twoHoursMs - ratio * (twoHoursMs - thirtySecMs)).toLong()
+            }
+            else -> 2 * 3600 * 1000L
+        }
+    }
+
+    fun triggerHeavyPenaltyLock(count: Int = getTodayReport().count) {
         val data = loadData()
         val now = System.currentTimeMillis()
         if (data.heavyPenaltyLockUntil < now && data.penaltyDismissedUntil < now) {
-            // デバッグ用に10秒に短縮中(本番は 60_000L = 60秒に戻す)
-            saveData(data.copy(heavyPenaltyLockUntil = now + 10_000L))
+            val lockDurationMs = 30_000L // 30秒間操作ブロック
+            val cooldownMs = getPenaltyIntervalMs(count)
+            saveData(data.copy(
+                heavyPenaltyLockUntil = now + lockDurationMs,
+                penaltyDismissedUntil = now + lockDurationMs + cooldownMs
+            ))
         }
     }
 
@@ -130,10 +148,14 @@ class AppRepo(context: Context) {
         return System.currentTimeMillis() < data.heavyPenaltyLockUntil
     }
 
-    fun clearHeavyPenaltyLock() {
+    fun clearHeavyPenaltyLock(count: Int = getTodayReport().count) {
         val data = loadData()
         val now = System.currentTimeMillis()
-        saveData(data.copy(heavyPenaltyLockUntil = 0L, penaltyDismissedUntil = now + 1_800_000L))
+        val cooldownMs = getPenaltyIntervalMs(count)
+        saveData(data.copy(
+            heavyPenaltyLockUntil = 0L,
+            penaltyDismissedUntil = now + cooldownMs
+        ))
     }
 
     fun getRemainingPenaltySeconds(): Int {

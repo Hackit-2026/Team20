@@ -4,7 +4,7 @@ Yo Say 酒場
 
 # プロダクト名
 
-プロダクト名を記載してください。
+モグラの恩返し
 
 ## 概要
 
@@ -14,12 +14,17 @@ Yo Say 酒場
 
 ## デモ
 
-以下を掲載してください。
+- **発表資料URL**: [発表スライド資料 (HTML版)](presentation/interim_slides.html)
 
-- 発表資料URL（必須）
-- デモURL（任意）
-- デモ動画（任意）
-- スクリーンショット（1枚以上推奨）
+### 📸 アプリ実機スクリーンショット
+
+| ホーム画面 (メイン) | 60秒操作ロックペナルティ | 🚨 端末壁紙警告自動変更 |
+| :---: | :---: | :---: |
+| <img src="Image/Screenshot_20260803_093027_My_Application.jpg" width="220"> | <img src="Image/Screenshot_20260803_093438_My_Application.jpg" width="220"> | <img src="Image/Screenshot_20260803_093500_One_UI_Home.jpg" width="220"> |
+
+| 📊 履歴 (グラフ&ピクトグラム) | 🎯 目標設定 (減煙モード) | ⚙️ 設定・テスト通知 |
+| :---: | :---: | :---: |
+| <img src="Image/Screenshot_20260803_093133_My_Application.jpg" width="220"> | <img src="Image/Screenshot_20260803_093042_My_Application.jpg" width="220"> | <img src="Image/Screenshot_20260803_093851_My_Application.jpg" width="220"> |
 
 ## システム構成
 
@@ -27,8 +32,7 @@ Yo Say 酒場
 
 ## 背景・課題
 
-さあ
-しいて言えば禁煙したかったから
+喫煙が長年の生活習慣として深く定着しているため、食後や仕事の合間といった特定のシチュエーションにおいて無意識に手が伸びてしまい、決意を維持できないこと。
 
 ## 主な機能
 

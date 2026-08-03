@@ -64,13 +64,15 @@ class PenaltyWatcherService : Service() {
             while (isActive) {
                 val fg = getForegroundPackage()
                 val isHeavyActive = repo.isHeavyPenaltyActive()
+                val todayCount = repo.getTodayReport().count
+                val weeklyTotal = repo.getWeeklyTotalExcludingToday()
+                val effectiveCount = maxOf(todayCount, repo.getWeeklyTotal())
                 val penaltyVal = repo.calculateWeightedPenaltyValue()
-                val weeklyTotal = repo.getWeeklyTotal()
 
-                val shouldHeavy = penaltyVal >= 5.0 || weeklyTotal >= 2
+                val shouldHeavy = effectiveCount > 0 || penaltyVal >= 5.0 || weeklyTotal >= 2
 
                 if (shouldHeavy && !isHeavyActive) {
-                    repo.triggerHeavyPenaltyLock()
+                    repo.triggerHeavyPenaltyLock(effectiveCount)
                     // 🚨 スマホ端末本体のシステム壁紙を「重度ペナルティ危険警告壁紙」に変更
                     WallpaperHelper.setPenaltyWallpaper(applicationContext)
                 }

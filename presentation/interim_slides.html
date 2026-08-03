@@ -3,266 +3,588 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>中間発表 - 禁煙・減煙チャレンジ | Team20 Yo Say 酒場</title>
+<title>モグラの恩返し - 発表資料 | Team20 Yo Say 酒場</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   :root {
-    --bg: #16181d;
-    --panel: #20242b;
-    --ink: #eceff4;
-    --muted: #9aa1ab;
-    --accent: #4fd1c5;
-    --warn: #ff6b6b;
-    --yani: #d4a94e;
+    --bg-dark: #070a11;
+    --panel-bg: rgba(18, 25, 38, 0.85);
+    --panel-border: rgba(255, 255, 255, 0.15);
+    --text-primary: #ffffff;
+    --text-secondary: #a0aec0;
+    --accent-cyan: #00f2fe;
+    --accent-blue: #4facfe;
+    --warn-red: #ff4757;
+    --gold-yani: #ffb703;
+    --green-health: #10b981;
+    --font-jp: 'Noto Sans JP', 'Inter', sans-serif;
   }
-  html, body { height: 100%; background: var(--bg); color: var(--ink);
-    font-family: "Yu Gothic UI", "Hiragino Sans", "Noto Sans JP", sans-serif; overflow: hidden; }
 
+  html, body {
+    height: 100%;
+    width: 100%;
+    background-color: var(--bg-dark);
+    color: var(--text-primary);
+    font-family: var(--font-jp);
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* 背景オーラ */
+  .ambient-bg {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+  }
+  .glow-1 {
+    position: absolute;
+    width: 800px;
+    height: 800px;
+    top: -200px;
+    left: -200px;
+    background: radial-gradient(circle, rgba(0, 242, 254, 0.15) 0%, rgba(0, 0, 0, 0) 70%);
+    filter: blur(80px);
+  }
+  .glow-2 {
+    position: absolute;
+    width: 900px;
+    height: 900px;
+    bottom: -250px;
+    right: -250px;
+    background: radial-gradient(circle, rgba(255, 71, 87, 0.12) 0%, rgba(0, 0, 0, 0) 70%);
+    filter: blur(100px);
+  }
+
+  /* スライド容器 */
+  .slide-deck {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    z-index: 1;
+  }
   .slide {
-    display: none; position: absolute; inset: 0;
-    padding: 7vh 8vw; flex-direction: column; justify-content: center;
+    display: none;
+    position: absolute;
+    inset: 0;
+    padding: 5vh 6vw;
+    flex-direction: column;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.35s ease, transform 0.35s ease;
+    transform: translateY(12px);
   }
-  .slide.active { display: flex; }
-
-  h1 { font-size: 5.2vw; line-height: 1.25; margin-bottom: 3vh; }
-  h2 { font-size: 3.6vw; margin-bottom: 4vh; border-left: 0.6vw solid var(--accent); padding-left: 1.5vw; }
-  p, li { font-size: 2.1vw; line-height: 1.8; color: var(--ink); }
-  ul { list-style: none; }
-  li { margin-bottom: 1.6vh; padding-left: 2.4vw; position: relative; }
-  li::before { content: "▸"; color: var(--accent); position: absolute; left: 0.5vw; }
-  .muted { color: var(--muted); }
-  .accent { color: var(--accent); }
-  .warn { color: var(--warn); }
-  .yani { color: var(--yani); }
-  .small { font-size: 1.6vw; }
-  .center { text-align: center; }
-
-  .cards { display: flex; gap: 2vw; margin-top: 2vh; }
-  .card {
-    flex: 1; background: var(--panel); border-radius: 1.2vw; padding: 3vh 1.8vw;
-    border-top: 0.4vh solid var(--accent);
+  .slide.active {
+    display: flex;
+    opacity: 1;
+    transform: translateY(0);
   }
-  .card.red { border-top-color: var(--warn); }
-  .card.gold { border-top-color: var(--yani); }
-  .card h3 { font-size: 2vw; margin-bottom: 1.5vh; }
-  .card p, .card li { font-size: 1.55vw; line-height: 1.7; }
 
-  .stagebar { display: flex; justify-content: space-between; align-items: flex-end;
-    background: var(--panel); border-radius: 1.2vw; padding: 3vh 3vw; margin-top: 3vh; }
-  .stage { text-align: center; }
-  .stage .emoji { font-size: 5vw; display: block; }
-  .stage .label { font-size: 1.3vw; color: var(--muted); margin-top: 1vh; display: block; }
-  .arrow { font-size: 3vw; color: var(--warn); align-self: center; }
-
-  .flow { display: flex; align-items: center; gap: 1.2vw; margin-top: 3vh; flex-wrap: wrap; }
-  .flow .step { background: var(--panel); border-radius: 1vw; padding: 2vh 1.6vw; font-size: 1.7vw; }
-  .flow .fa { color: var(--accent); font-size: 2vw; }
-
-  table { border-collapse: collapse; width: 100%; margin-top: 2vh; }
-  th, td { padding: 1.6vh 1.5vw; font-size: 1.8vw; text-align: left; border-bottom: 1px solid #333a45; }
-  th { color: var(--accent); font-size: 1.6vw; }
-  td.done { color: var(--accent); }
-  td.todo { color: var(--yani); }
-
-  .footer {
-    position: fixed; bottom: 2vh; right: 3vw; color: var(--muted);
-    font-size: 1.3vw; user-select: none;
+  /* タイポグラフィ */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(0, 242, 254, 0.15);
+    color: var(--accent-cyan);
+    border: 1.5px solid rgba(0, 242, 254, 0.4);
+    border-radius: 999px;
+    padding: 6px 24px;
+    font-size: 1.2rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    margin-bottom: 2vh;
+    width: fit-content;
   }
-  .pagenum { position: fixed; bottom: 2vh; left: 3vw; color: var(--muted); font-size: 1.3vw; }
-  .hint { position: fixed; top: 2vh; right: 3vw; color: #4a505a; font-size: 1.1vw; }
-
-  .titlebadge {
-    display: inline-block; background: var(--panel); color: var(--accent);
-    border-radius: 999px; padding: 1vh 2.5vw; font-size: 1.7vw; margin-bottom: 4vh;
-    border: 1px solid #333a45;
+  .badge.red {
+    background: rgba(255, 71, 87, 0.18);
+    color: var(--warn-red);
+    border-color: rgba(255, 71, 87, 0.5);
   }
-  .bigemoji { font-size: 9vw; margin: 2vh 0; }
+  .badge.gold {
+    background: rgba(255, 183, 3, 0.18);
+    color: var(--gold-yani);
+    border-color: rgba(255, 183, 3, 0.5);
+  }
+
+  h1.title-large {
+    font-size: 6rem;
+    font-weight: 900;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    margin-bottom: 2.5vh;
+    background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  h2.slide-header {
+    font-size: 3rem;
+    font-weight: 900;
+    margin-bottom: 3vh;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    position: relative;
+    padding-left: 22px;
+  }
+  h2.slide-header::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 5%;
+    bottom: 5%;
+    width: 7px;
+    background: linear-gradient(180deg, var(--accent-cyan), var(--accent-blue));
+    border-radius: 99px;
+  }
+
+  /* パネル */
+  .panel {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 24px;
+    padding: 36px 44px;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5);
+    position: relative;
+    overflow: hidden;
+  }
+  .panel-glow-cyan { border-top: 3px solid var(--accent-cyan); }
+  .panel-glow-red { border-top: 3px solid var(--warn-red); }
+  .panel-glow-gold { border-top: 3px solid var(--gold-yani); }
+
+  /* コンセプトメッセージ */
+  .catchphrase-box {
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.9) 100%);
+    border: 1.5px solid rgba(0, 242, 254, 0.4);
+    border-left: 12px solid var(--accent-cyan);
+    border-radius: 24px;
+    padding: 44px 52px;
+    box-shadow: 0 20px 45px rgba(0, 242, 254, 0.15);
+  }
+  .catchphrase-main {
+    font-size: 2.6rem;
+    font-weight: 900;
+    line-height: 1.45;
+    color: #ffffff;
+    margin-bottom: 20px;
+  }
+  .catchphrase-sub {
+    font-size: 1.6rem;
+    line-height: 1.85;
+    color: #e2e8f0;
+    font-weight: 400;
+  }
+
+  /* グリッドレイアウト */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2vw;
+  }
+  .grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5vw;
+  }
+  .grid-6 {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 1vw;
+  }
+  .grid-5 {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1.2vw;
+  }
+
+  /* スクリーンショットギャラリー */
+  .shot-card {
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 16px;
+    padding: 10px;
+    text-align: center;
+    transition: transform 0.2s ease, border-color 0.2s ease;
+  }
+  .shot-card:hover {
+    transform: translateY(-6px);
+    border-color: var(--accent-cyan);
+  }
+  .shot-img {
+    width: 100%;
+    height: 320px;
+    object-fit: contain;
+    border-radius: 10px;
+    background: #000;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.6);
+  }
+  .shot-caption {
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin-top: 8px;
+    color: #cbd5e1;
+  }
+
+  /* 比較カード */
+  .comp-card {
+    background: rgba(15, 23, 42, 0.85);
+    border-radius: 24px;
+    padding: 36px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  .comp-card.old { border-top: 4px solid #64748b; }
+  .comp-card.new {
+    border-top: 4px solid var(--accent-cyan);
+    background: linear-gradient(135deg, rgba(0, 242, 254, 0.08) 0%, rgba(15, 23, 42, 0.9) 100%);
+    box-shadow: 0 20px 50px rgba(0, 242, 254, 0.12);
+  }
+  .comp-title {
+    font-size: 2rem;
+    font-weight: 900;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .comp-list { list-style: none; }
+  .comp-list li {
+    font-size: 1.5rem;
+    line-height: 1.8;
+    margin-bottom: 16px;
+    padding-left: 32px;
+    position: relative;
+  }
+  .comp-list.old li::before {
+    content: '✖';
+    position: absolute;
+    left: 0;
+    color: #ef4444;
+    font-weight: 900;
+  }
+  .comp-list.new li::before {
+    content: '✔';
+    position: absolute;
+    left: 0;
+    color: var(--accent-cyan);
+    font-weight: 900;
+  }
+
+  /* リスト */
+  ul.bullet-list { list-style: none; }
+  ul.bullet-list li {
+    font-size: 1.7rem;
+    line-height: 1.8;
+    margin-bottom: 20px;
+    padding-left: 40px;
+    position: relative;
+    color: #ffffff;
+    font-weight: 500;
+  }
+  ul.bullet-list li::before {
+    content: '◆';
+    position: absolute;
+    left: 0;
+    color: var(--accent-cyan);
+    font-size: 1.3rem;
+  }
+  ul.bullet-list.red li::before { color: var(--warn-red); }
+
+  /* キャラクタープレビュー */
+  .char-preview-bar {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 2vw;
+    margin-top: 3vh;
+  }
+  .char-card {
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 18px;
+    padding: 16px;
+    text-align: center;
+    width: 150px;
+  }
+  .char-card img {
+    width: 100px;
+    height: 100px;
+    object-fit: contain;
+    filter: drop-shadow(0 10px 20px rgba(0,0,0,0.7));
+  }
+  .char-card-name {
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin-top: 8px;
+    color: #ffffff;
+  }
+
+  /* フッター */
+  .nav-footer {
+    position: fixed;
+    bottom: 20px;
+    left: 40px;
+    right: 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 100;
+    pointer-events: none;
+  }
+  .page-counter {
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 6px 20px;
+    border-radius: 999px;
+    font-size: 1.1rem;
+    font-family: 'Inter', sans-serif;
+    color: #ffffff;
+    font-weight: 700;
+  }
+  .footer-title { font-size: 1rem; color: var(--text-secondary); }
+  .control-hint { font-size: 0.95rem; color: #94a3b8; }
+
+  .final-box {
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.9) 100%);
+    border: 2px solid rgba(0, 242, 254, 0.4);
+    border-radius: 32px;
+    padding: 52px 56px;
+    box-shadow: 0 25px 60px rgba(0, 242, 254, 0.15);
+    margin: 0 auto;
+    max-width: 960px;
+    width: 100%;
+  }
 </style>
 </head>
 <body>
 
-<!-- 1. タイトル -->
-<section class="slide active center">
-  <div><span class="titlebadge">Hackit 2026 ─ Team20「Yo Say 酒場」中間発表</span></div>
-  <h1>吸うほどキャラが<span class="warn">ヤニ化</span>する。<br>反面教師型 禁煙・減煙アプリ</h1>
-  <p class="bigemoji">😊 → 😮‍💨 → 😵 → 👹</p>
-  <p class="muted">「やめろ」と言わない禁煙アプリ ─ 鏡を置くだけ。</p>
-</section>
+<div class="ambient-bg">
+  <div class="glow-1"></div>
+  <div class="glow-2"></div>
+</div>
 
-<!-- 2. 背景・課題 -->
-<section class="slide">
-  <h2>背景・課題</h2>
-  <ul>
-    <li>禁煙アプリは山ほどある。でも <span class="warn">「やめろ」と言われて人はやめない</span></li>
-    <li>説教・我慢の強制は続かない。三日坊主の温床</li>
-    <li>喫煙量は「数字」で見てもピンとこない</li>
-  </ul>
-  <div class="cards">
-    <div class="card gold">
-      <h3>💡 発想の転換</h3>
-      <p>なりたくない自分を<strong>キャラクターとして見せる</strong>。説教しない。ただ、鏡を置くだけ。</p>
+<div class="slide-deck">
+
+  <!-- Slide 1: タイトル -->
+  <section class="slide title-slide active">
+    <div style="text-align: center; margin: auto 0;">
+      <div class="badge">Team20 Yo Say 酒場</div>
+      <h1 class="title-large" style="font-size: 6rem; margin-bottom: 2.5vh;">モグラの恩返し</h1>
+      <p style="font-size: 2.4rem; color: var(--accent-cyan); font-weight: 900; letter-spacing: 0.02em; margin-bottom: 1.5vh;">
+        「意思の弱さに、強烈な介入を。」
+      </p>
+      <p style="font-size: 1.7rem; color: #cbd5e1; font-weight: 500;">
+        本気でやめたい人のための、逃げ場ゼロ型・減煙アシスタント
+      </p>
+
+      <div class="char-preview-bar">
+        <div class="char-card">
+          <img src="../AndroidApp/app/src/main/res/drawable/char_stage_0.png" alt="Stage 0">
+          <div class="char-card-name">😊 Stage 0</div>
+        </div>
+        <div style="font-size: 2rem; color: var(--warn-red); font-weight: 900;">➔</div>
+        <div class="char-card">
+          <img src="../AndroidApp/app/src/main/res/drawable/char_stage_5.png" alt="Stage 5">
+          <div class="char-card-name">😮‍💨 Stage 5</div>
+        </div>
+        <div style="font-size: 2rem; color: var(--warn-red); font-weight: 900;">➔</div>
+        <div class="char-card">
+          <img src="../AndroidApp/app/src/main/res/drawable/char_stage_10.png" alt="Stage 10">
+          <div class="char-card-name">😵 Stage 10</div>
+        </div>
+        <div style="font-size: 2rem; color: var(--warn-red); font-weight: 900;">➔</div>
+        <div class="char-card">
+          <img src="../AndroidApp/app/src/main/res/drawable/char_stage_20.png" alt="Stage 20">
+          <div class="char-card-name">👹 Stage 20</div>
+        </div>
+      </div>
     </div>
-  </div>
-</section>
+  </section>
 
-<!-- 3. コンセプト -->
-<section class="slide">
-  <h2>コンセプト:反面教師育成ゲーム</h2>
-  <ul>
-    <li>毎日「今日吸った本数」を申告するだけ</li>
-    <li>吸うほどキャラが汚れ、モンスターへと堕ちていく</li>
-    <li>我慢すればキャラは綺麗なまま ─ <span class="accent">あなたの分身です</span></li>
-  </ul>
-  <div class="stagebar">
-    <div class="stage"><span class="emoji">😊</span><span class="label">Stage 0<br>健康</span></div>
-    <div class="arrow">→</div>
-    <div class="stage"><span class="emoji">😮‍💨</span><span class="label">〜5本<br>ヤニ初心者</span></div>
-    <div class="arrow">→</div>
-    <div class="stage"><span class="emoji">😵</span><span class="label">〜15本<br>ヘビースモーカー</span></div>
-    <div class="arrow">→</div>
-    <div class="stage"><span class="emoji">👹</span><span class="label">20本〜<br>ヤニモンスター</span></div>
-  </div>
-  <p class="small muted" style="margin-top:2vh">実際のアプリでは前日〜1ヶ月の累積本数で <strong>21段階</strong> に変化(1本 = 1段階)</p>
-</section>
+  <!-- Slide 2: コンセプト -->
+  <section class="slide">
+    <div class="badge">コンセプト</div>
+    <h2 class="slide-header">コンセプト</h2>
 
-<!-- 4. 実装済み機能 -->
-<section class="slide">
-  <h2>実装済みの主な機能</h2>
-  <div class="cards">
-    <div class="card">
-      <h3>🐣 キャラ育成</h3>
-      <ul>
-        <li>21段階の姿変化</li>
-        <li>タップで喋る(段階でセリフ変化)</li>
-        <li>羽ばたきアニメーション</li>
+    <div class="catchphrase-box">
+      <div class="catchphrase-main">
+        「意思の弱さに、強烈な介入を。」<br>
+        <span style="font-size: 1.9rem; color: #cbd5e1; font-weight: 500;">本気でやめたい人のための、逃げ場ゼロ型・減煙アシスタント</span>
+      </div>
+      <div class="catchphrase-sub">
+        「やめたいけど吸ってしまう」という人間味ある弱さを認めつつ、アプリが力づくでそれを阻止するというプロダクト最大の強み（ペナルティ機能）をストレートに伝えるコンセプトです。
+      </div>
+    </div>
+  </section>
+
+  <!-- Slide 3: 背景課題 -->
+  <section class="slide">
+    <div class="badge red">背景課題</div>
+    <h2 class="slide-header">背景課題</h2>
+
+    <div class="panel panel-glow-red" style="padding: 50px 58px;">
+      <ul class="bullet-list red">
+        <li style="font-size: 1.9rem; line-height: 1.9;">
+          喫煙が長年の生活習慣として深く定着しているため、食後や仕事の合間といった特定のシチュエーションにおいて無意識に手が伸びてしまい、決意を維持できないこと。
+        </li>
       </ul>
     </div>
-    <div class="card red">
-      <h3>🚨 ペナルティ</h3>
-      <ul>
-        <li>スマホの壁紙を強制変更</li>
-        <li>60秒操作ロック画面</li>
-        <li>他アプリ起動時も警告が追跡</li>
+  </section>
+
+  <!-- Slide 4: 既存プロダクトとの差別化 -->
+  <section class="slide">
+    <div class="badge gold">プロダクト比較</div>
+    <h2 class="slide-header">既存プロダクトとの差別化</h2>
+
+    <div class="grid-2">
+      <div class="comp-card old">
+        <div class="comp-title" style="color: #94a3b8;">
+          <span>📱 従来の禁煙・減煙アプリ</span>
+        </div>
+        <ul class="comp-list old">
+          <li><strong>説教・我慢の強要:</strong> 「やめましょう」というプレッシャーでストレスが溜まる。</li>
+          <li><strong>意志の力に丸投げ:</strong> 無意識の手伸び・衝動を物理的に防げず、三日坊主で挫折。</li>
+          <li><strong>アプリ閉じたら終了:</strong> アプリ領域を離れると介入手段が存在しない。</li>
+        </ul>
+      </div>
+
+      <div class="comp-card new">
+        <div class="comp-title" style="color: var(--accent-cyan);">
+          <span>⚡ モグラの恩返し (本プロダクト)</span>
+        </div>
+        <ul class="comp-list new">
+          <li><strong style="color: #ffffff;">説教ゼロ (鏡を置くだけ):</strong> 吸うほどキャラが醜く変化する「反面教師」の提示。</li>
+          <li><strong style="color: var(--accent-cyan);">強烈な物理介入 (逃げ場ゼロ):</strong> 過度喫煙時に60秒他アプリ操作ロック＋スマホ壁紙自動警告変更。</li>
+          <li><strong style="color: #ffffff;">意思の弱さをシステムで補正:</strong> 「やめたい本気層」をアプリが力づくで救う構造。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Slide 5: 実装済み機能 -->
+  <section class="slide">
+    <div class="badge">機能一覧</div>
+    <h2 class="slide-header">実装済み機能</h2>
+
+    <div class="grid-5">
+      <div class="panel panel-glow-cyan" style="padding: 28px 20px;">
+        <div style="font-size: 1.45rem; font-weight: 900; margin-bottom: 12px; color: var(--accent-cyan);">📊 記録と可視化</div>
+        <div style="font-size: 1.15rem; color: #e2e8f0; line-height: 1.6;">ワンタップ本数記録<br>推移グラフ・ピクトグラム</div>
+      </div>
+      <div class="panel panel-glow-red" style="padding: 28px 20px;">
+        <div style="font-size: 1.45rem; font-weight: 900; margin-bottom: 12px; color: var(--warn-red);">🚨 ペナルティ</div>
+        <div style="font-size: 1.15rem; color: #e2e8f0; line-height: 1.6;">60秒全画面操作ロック<br>端末壁紙自動警告変更</div>
+      </div>
+      <div class="panel panel-glow-gold" style="padding: 28px 20px;">
+        <div style="font-size: 1.45rem; font-weight: 900; margin-bottom: 12px; color: var(--gold-yani);">🐣 キャラ育成</div>
+        <div style="font-size: 1.15rem; color: #e2e8f0; line-height: 1.6;">21段階リアルタイム変身<br>タップ会話アニメ</div>
+      </div>
+      <div class="panel panel-glow-cyan" style="padding: 28px 20px;">
+        <div style="font-size: 1.45rem; font-weight: 900; margin-bottom: 12px; color: var(--green-health);">🎯 目標段階的削減</div>
+        <div style="font-size: 1.15rem; color: #e2e8f0; line-height: 1.6;">過去平均から自動計算<br>段階的減煙/完全禁煙</div>
+      </div>
+      <div class="panel panel-glow-cyan" style="padding: 28px 20px;">
+        <div style="font-size: 1.45rem; font-weight: 900; margin-bottom: 12px; color: var(--accent-blue);">⏰ リマインダー通知</div>
+        <div style="font-size: 1.15rem; color: #e2e8f0; line-height: 1.6;">指定時刻の定時通知<br>AlarmManager連動</div>
+      </div>
+    </div>
+
+    <!-- 実画像キャラクター表示 -->
+    <div class="char-preview-bar" style="margin-top: 3.5vh;">
+      <div class="char-card"><img src="../AndroidApp/app/src/main/res/drawable/char_stage_0.png" alt="Stage 0"><div class="char-card-name">😊 Stage 0</div></div>
+      <div style="font-size: 1.6rem; color: var(--warn-red); font-weight: 900;">➔</div>
+      <div class="char-card"><img src="../AndroidApp/app/src/main/res/drawable/char_stage_5.png" alt="Stage 5"><div class="char-card-name">😮‍💨 Stage 5</div></div>
+      <div style="font-size: 1.6rem; color: var(--warn-red); font-weight: 900;">➔</div>
+      <div class="char-card"><img src="../AndroidApp/app/src/main/res/drawable/char_stage_10.png" alt="Stage 10"><div class="char-card-name">😵 Stage 10</div></div>
+      <div style="font-size: 1.6rem; color: var(--warn-red); font-weight: 900;">➔</div>
+      <div class="char-card"><img src="../AndroidApp/app/src/main/res/drawable/char_stage_20.png" alt="Stage 20"><div class="char-card-name">👹 Stage 20</div></div>
+    </div>
+  </section>
+
+  <!-- Slide 6: デモ & 実機画面ギャラリー (追加画像6枚を配置) -->
+  <section class="slide">
+    <div class="badge green">実機デモ</div>
+    <h2 class="slide-header">デモ画面・アプリ動作</h2>
+
+    <div class="grid-6">
+      <div class="shot-card">
+        <img src="../Image/Screenshot_20260803_093027_My_Application.jpg" alt="ホーム画面" class="shot-img">
+        <div class="shot-caption">📱 ホーム画面<br>(本数入力 & 変身)</div>
+      </div>
+
+      <div class="shot-card">
+        <img src="../Image/Screenshot_20260803_093042_My_Application.jpg" alt="目標設定" class="shot-img">
+        <div class="shot-caption">🎯 目標設定<br>(段階的減煙モード)</div>
+      </div>
+
+      <div class="shot-card">
+        <img src="../Image/Screenshot_20260803_093133_My_Application.jpg" alt="履歴画面" class="shot-img">
+        <div class="shot-caption">📊 履歴画面<br>(グラフ&ピクトグラム)</div>
+      </div>
+
+      <div class="shot-card">
+        <img src="../Image/Screenshot_20260803_093438_My_Application.jpg" alt="ペナルティ操作ロック" class="shot-img">
+        <div class="shot-caption">🔒 操作ロック<br>(60秒オーバーレイ)</div>
+      </div>
+
+      <div class="shot-card" style="border-color: var(--warn-red);">
+        <img src="../Image/Screenshot_20260803_093500_One_UI_Home.jpg" alt="端末壁紙警告自動変更" class="shot-img">
+        <div class="shot-caption" style="color: var(--warn-red);">🚨 端末壁紙警告<br>(自動変更演出)</div>
+      </div>
+
+      <div class="shot-card">
+        <img src="../Image/Screenshot_20260803_093851_My_Application.jpg" alt="設定・デバッグ" class="shot-img">
+        <div class="shot-caption">⚙️ 設定・テスト通知<br>(動作検証機能)</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Slide 7: 今後の展望 -->
+  <section class="slide">
+    <div class="badge red">ロードマップ</div>
+    <h2 class="slide-header">今後の展望</h2>
+
+    <div class="panel panel-glow-cyan" style="padding: 48px 54px;">
+      <ul class="bullet-list">
+        <li>ペナルティのキャラの妨害演出</li>
+        <li>SNS機能(本当に必要か？)</li>
+        <li>スマホアプリの使用を制限する。</li>
+        <li>スマートウォッチとの連携(ヤニポーズ + CO2 + 心拍数)</li>
+        <li>スマホ、睡眠、運動、酒の習慣をよくする。</li>
       </ul>
     </div>
-    <div class="card gold">
-      <h3>📊 記録と可視化</h3>
-      <ul>
-        <li>ワンタップ本数申告</li>
-        <li>週/月の棒グラフ</li>
-        <li>🚬を並べるピクトグラム表示</li>
-      </ul>
+  </section>
+
+  <!-- Slide 8: 最終スライド -->
+  <section class="slide title-slide">
+    <div style="text-align: center; margin: auto 0; width: 100%;">
+      <div class="badge gold" style="margin: 0 auto 2.5vh auto;">まとめ</div>
+      
+      <div class="final-box">
+        <div style="font-size: 3rem; font-weight: 900; color: #ffffff; line-height: 1.4; margin-bottom: 20px;">
+          「意思の弱さに、強烈な介入を。」
+        </div>
+        <div style="font-size: 2.1rem; font-weight: 700; color: var(--accent-cyan); line-height: 1.6; margin-bottom: 32px;">
+          本気でやめたい人のための、<br>逃げ場ゼロ型・減煙アシスタント
+        </div>
+        <div style="font-size: 1.7rem; font-weight: 500; color: #e2e8f0; text-align: left; background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; padding: 18px 28px;">
+          ・実質的に学習発達論を入れたものです。
+        </div>
+      </div>
     </div>
-  </div>
-  <div class="cards">
-    <div class="card">
-      <h3>⏰ リマインダー通知</h3>
-      <p>毎日指定時刻に記録を促す通知。時刻はユーザーが自由に設定可能。</p>
-    </div>
-    <div class="card">
-      <h3>🎯 目標の段階的削減</h3>
-      <p>今週の平均から次の目標本数を自動計算。無理なく減らしていく設計。</p>
-    </div>
-  </div>
-</section>
+  </section>
 
-<!-- 5. デモ -->
-<section class="slide">
-  <h2>デモ(ここで実演)</h2>
-  <div class="flow">
-    <div class="step">📱 本数を申告</div><span class="fa">→</span>
-    <div class="step">🐣 キャラがその場で悪化</div><span class="fa">→</span>
-    <div class="step">🚨 ペナルティ発動<br><span class="small muted">壁紙変更+ロック画面</span></div><span class="fa">→</span>
-    <div class="step">📊 履歴で🚬がズラリ</div>
-  </div>
-  <ul style="margin-top:4vh">
-    <li>キャラをタップ → <span class="accent">「毎日吸ってなくてうれしいよ!」</span></li>
-    <li>モンスター化後にタップ → <span class="warn">「…まだ、戻れるかな…?」</span></li>
-    <li>テスト通知ボタンで発表中にその場で通知を鳴らします</li>
-  </ul>
-</section>
+</div>
 
-<!-- 6. 技術スタック -->
-<section class="slide">
-  <h2>技術スタック</h2>
-  <table>
-    <tr><th>領域</th><th>技術</th><th>ポイント</th></tr>
-    <tr><td>アプリ</td><td>Kotlin / Jetpack Compose</td><td>宣言的UIで画面を高速に試作</td></tr>
-    <tr><td>設計</td><td>MVVM + Repository</td><td>ロジック・データ・UIを分離</td></tr>
-    <tr><td>データ</td><td>SharedPreferences + JSON</td><td>DB不要のシンプル永続化</td></tr>
-    <tr><td>通知</td><td>AlarmManager + BroadcastReceiver</td><td>毎日指定時刻に正確に発火</td></tr>
-    <tr><td>ペナルティ</td><td>WallpaperManager / オーバーレイ</td><td>アプリの外まで追いかける</td></tr>
-    <tr><td>検証</td><td>エミュレータ + 実機タブレット</td><td>Galaxy Tab S7で動作確認</td></tr>
-  </table>
-</section>
-
-<!-- 7. 開発の進め方 -->
-<section class="slide">
-  <h2>チーム開発の進め方</h2>
-  <div class="cards">
-    <div class="card">
-      <h3>👥 役割分担</h3>
-      <ul>
-        <li><strong>A</strong>: コアロジック・データ・Git管理</li>
-        <li><strong>B</strong>: 画面UI・キャラデザイン</li>
-        <li><strong>C</strong>: 通知機能・発表</li>
-      </ul>
-    </div>
-    <div class="card">
-      <h3>🌿 GitHubフロー</h3>
-      <ul>
-        <li>ブランチを切って開発 → PR → マージ</li>
-        <li>プッシュ前に必ずプル</li>
-        <li>他人の担当ファイルは触らない</li>
-      </ul>
-    </div>
-  </div>
-  <p class="small muted" style="margin-top:3vh">初日からコミット100件超。互いの機能を取り込み合いながら開発中(例:Cのキャラ表示 × Bの羽ばたきアニメ)</p>
-</section>
-
-<!-- 8. 進捗状況 -->
-<section class="slide">
-  <h2>進捗状況</h2>
-  <table>
-    <tr><th>項目</th><th>状態</th></tr>
-    <tr><td>本数申告・データ保存</td><td class="done">✅ 完了</td></tr>
-    <tr><td>21段階キャラ育成+タップ反応</td><td class="done">✅ 完了</td></tr>
-    <tr><td>ペナルティ(壁紙・ロック・オーバーレイ)</td><td class="done">✅ 完了</td></tr>
-    <tr><td>履歴グラフ・ピクトグラム</td><td class="done">✅ 完了</td></tr>
-    <tr><td>リマインダー通知</td><td class="done">✅ 完了</td></tr>
-    <tr><td>実機(タブレット)動作確認</td><td class="done">✅ 完了</td></tr>
-    <tr><td>ペナルティ中にキャラが邪魔する演出</td><td class="todo">🔨 開発中</td></tr>
-    <tr><td>デザイン最終調整・リハーサル</td><td class="todo">🔜 これから</td></tr>
-  </table>
-</section>
-
-<!-- 9. 今後の展望 -->
-<section class="slide">
-  <h2>今後の展望</h2>
-  <ul>
-    <li><span class="warn">キャラの妨害演出</span> ─ ペナルティ中、キャラがロック画面で暴れ回る</li>
-    <li><span class="accent">回復システム</span> ─ 吸わない日が続くとキャラが健康に戻っていく(希望を見せる)</li>
-    <li>節約金額の表示 ─ 「我慢したタバコ代でラーメン◯杯」</li>
-    <li>キャラによる通知ジャック ─ 姿に応じて通知の口調が変わる</li>
-  </ul>
-  <div class="cards" style="margin-top:3vh">
-    <div class="card gold">
-      <h3>ゴール</h3>
-      <p>「禁煙を強制しないのに、気づいたら吸う本数が減っている」体験の完成</p>
-    </div>
-  </div>
-</section>
-
-<!-- 10. まとめ -->
-<section class="slide center">
-  <h1 style="font-size:4vw">説教しないアプリです。<br><span class="accent">ただ、鏡を置くだけ。</span></h1>
-  <p class="bigemoji">👹 ← 🚬 ← 😊</p>
-  <p class="muted">Team20「Yo Say 酒場」 ─ ご清聴ありがとうございました</p>
-</section>
-
-<div class="pagenum"><span id="cur">1</span> / <span id="total">?</span></div>
-<div class="footer">Hackit 2026 ─ Team20 Yo Say 酒場</div>
-<div class="hint">← → キーまたはクリックで移動 / Fキーで全画面</div>
+<!-- ナビゲーションフッター -->
+<div class="nav-footer">
+  <div class="page-counter"><span id="cur">1</span> / <span id="total">8</span></div>
+  <div class="footer-title">モグラの恩返し ─ Team20 Yo Say 酒場</div>
+  <div class="control-hint">← → キー / クリック移動 / Fキー全画面</div>
+</div>
 
 <script>
   const slides = document.querySelectorAll('.slide');
@@ -274,15 +596,27 @@
     slides.forEach((s, n) => s.classList.toggle('active', n === idx));
     document.getElementById('cur').textContent = idx + 1;
   }
+
   document.addEventListener('keydown', e => {
     if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') show(idx + 1);
     if (e.key === 'ArrowLeft' || e.key === 'PageUp') show(idx - 1);
-    if (e.key === 'f' || e.key === 'F') document.documentElement.requestFullscreen?.();
+    if (e.key === 'f' || e.key === 'F') {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen?.();
+      } else {
+        document.exitFullscreen?.();
+      }
+    }
   });
+
   document.addEventListener('click', e => {
-    // 画面の左1/4クリックで戻る、それ以外は進む
-    (e.clientX < window.innerWidth / 4) ? show(idx - 1) : show(idx + 1);
+    if (e.clientX < window.innerWidth / 4) {
+      show(idx - 1);
+    } else {
+      show(idx + 1);
+    }
   });
 </script>
+
 </body>
 </html>
